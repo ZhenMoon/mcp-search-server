@@ -12,6 +12,7 @@ import { adaptQuery, getQueryInfo } from './queryAdapter.js'
 import { getCached, setCache } from './cache.js'
 import { isEngineAvailable, recordFailure, recordSuccess } from './circuitBreaker.js'
 import { expandQuery } from './queryExpander.js'
+import { resolveResultUrls } from './scraper.js'
 
 const ENGINES: Record<string, SearchEngine> = {
   duckduckgo: new DuckDuckGoEngine(),
@@ -82,25 +83,33 @@ function normalizeTitle(title: string): string {
   return title.toLowerCase().replace(/[\s,，。、；：！？!?\-—·・]+/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+function titleWords(title: string): Set<string> {
+  return new Set(normalizeTitle(title).split(/\s+/).filter(Boolean))
+}
+
+function titleSimilarity(a: string, b: string): number {
+  const wa = titleWords(a)
+  const wb = titleWords(b)
+  const intersection = new Set([...wa].filter(w => wb.has(w)))
+  const union = new Set([...wa, ...wb])
+  return intersection.size / union.size
+}
+
 function deduplicateByContent(results: SearchResult[]): SearchResult[] {
-  const seen = new Map<string, SearchResult[]>()
+  const seen: SearchResult[] = []
 
   for (const r of results) {
-    const key = normalizeTitle(r.title)
-    const existing = seen.get(key)
-    if (existing) {
-      existing.push(r)
-    } else {
-      seen.set(key, [r])
+    let isDup = false
+    for (const existing of seen) {
+      if (existing.title === r.title || titleSimilarity(existing.title, r.title) > 0.6) {
+        isDup = true
+        break
+      }
     }
+    if (!isDup) seen.push(r)
   }
 
-  const out: SearchResult[] = []
-  for (const group of seen.values()) {
-    group.sort((a, b) => b.description.length - a.description.length)
-    out.push(group[0])
-  }
-  return out
+  return seen
 }
 
 function dedupKey(url: string): string {
@@ -297,6 +306,9 @@ export async function aggregateWithReport(options: SearchOptions): Promise<Aggre
   }
 
   const final = guaranteed.slice(0, maxResults)
+
+  // resolve redirect URLs (360, Baidu, Sogou) for final results
+  await resolveResultUrls(final)
 
   // write cache
   setCache(query, engineNames as string[], false, { results: final, reports })

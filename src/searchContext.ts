@@ -108,3 +108,16 @@ export const SEARCH_PROFILES: Record<string, { label: string; engines: string[];
     description: '全部可用引擎',
   },
 }
+
+// Allow custom profile via SEARCH_CUSTOM_ENGINES env var
+const customEngines = process.env.SEARCH_CUSTOM_ENGINES
+if (customEngines) {
+  const parts = customEngines.split(',').map(s => s.trim()).filter(Boolean)
+  if (parts.length > 0) {
+    SEARCH_PROFILES.custom = {
+      label: '自定义',
+      engines: parts,
+      description: parts.join(' + '),
+    }
+  }
+}

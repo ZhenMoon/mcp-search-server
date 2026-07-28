@@ -75,6 +75,7 @@ const BLOCKED_PATTERNS = [
 ]
 
 let profileIndex = 0
+const redirectCache = new Map<string, string>()
 
 export function pickHeaders(): Record<string, string> {
   profileIndex = (profileIndex + 1) % PROFILES.length
@@ -93,7 +94,6 @@ export function pickHeaders(): Record<string, string> {
     'Upgrade-Insecure-Requests': '1',
   }
 
-  // Client hints — Safari omits these
   if (p.brand) {
     headers['sec-ch-ua'] = p.brand
     headers['sec-ch-ua-mobile'] = p.mobile
@@ -112,4 +112,44 @@ export function isBlocked(html: string): boolean {
 
 export function delayMs(min = 300, max = 1200): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
+export async function resolveRedirect(url: string): Promise<string> {
+  const cached = redirectCache.get(url)
+  if (cached) return cached
+
+  try {
+    const res = await fetch(url, {
+      method: 'HEAD',
+      headers: pickHeaders(),
+      redirect: 'manual',
+      signal: AbortSignal.timeout(3000),
+    })
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get('location')
+      if (loc) {
+        const resolved = new URL(loc, url).toString()
+        redirectCache.set(url, resolved)
+        return resolved
+      }
+    }
+  } catch { }
+
+  return url
+}
+
+export async function resolveResultUrls(
+  results: Array<{ url: string }>,
+  concurrency = 3
+): Promise<void> {
+  const redirectDomains = ['so.com/link', 'baidu.com/link', 'sogou.com']
+  const toResolve = results.filter(r => redirectDomains.some(d => r.url.includes(d)))
+  if (toResolve.length === 0) return
+
+  for (let i = 0; i < toResolve.length; i += concurrency) {
+    const batch = toResolve.slice(i, i + concurrency)
+    await Promise.all(batch.map(async r => {
+      r.url = await resolveRedirect(r.url)
+    }))
+  }
 }
