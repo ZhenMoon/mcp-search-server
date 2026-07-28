@@ -79,7 +79,41 @@ function scoreRelevance(query: string, result: SearchResult, preferFresh = false
   return score
 }
 
-function deduplicateAcrossEngines(results: SearchResult[]): SearchResult[] {
+function normalizeTitle(title: string): string {
+  return title.toLowerCase().replace(/[\s,，。、；：！？!?\-—·・]+/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function deduplicateByContent(results: SearchResult[]): SearchResult[] {
+  const seen = new Map<string, SearchResult[]>()
+
+  for (const r of results) {
+    const key = normalizeTitle(r.title)
+    const existing = seen.get(key)
+    if (existing) {
+      existing.push(r)
+    } else {
+      seen.set(key, [r])
+    }
+  }
+
+  const out: SearchResult[] = []
+  for (const group of seen.values()) {
+    group.sort((a, b) => b.description.length - a.description.length)
+    out.push(group[0])
+  }
+  return out
+}
+
+function dedupKey(url: string): string {
+  const lower = url.toLowerCase()
+  // Redirect-based engines: use full URL (params encode destination)
+  if (/\.(baidu|so)\.com\/link/.test(lower)) return lower
+  if (/sogou\.com/.test(lower) && lower.includes('url=')) return lower
+  // Other URLs: strip tracking params
+  return lower.split('?')[0].replace(/\/+$/, '')
+}
+
+function deduplicateByUrl(results: SearchResult[]): SearchResult[] {
   const seen = new Map<string, SearchResult[]>()
 
   for (const r of results) {
@@ -95,65 +129,8 @@ function deduplicateAcrossEngines(results: SearchResult[]): SearchResult[] {
   const out: SearchResult[] = []
   for (const group of seen.values()) {
     group.sort((a, b) => b.description.length - a.description.length)
-    const chosen = group[0]
-    out.push(chosen)
+    out.push(group[0])
   }
-
-  return out
-}
-
-function dedupKey(url: string): string {
-  const lower = url.toLowerCase()
-  // For redirect-based engines (baidu, 360, sogou), use the full URL including params
-  // because the query params encode the actual destination
-  if (/\.(baidu|so)\.com\/link/.test(lower)) return lower
-  if (/sogou\.com/.test(lower) && lower.includes('url=')) return lower
-  // For other URLs, strip query params to catch duplicates like utm_* tracking
-  return lower.split('?')[0].replace(/\/+$/, '')
-}
-
-function diversifyResults(results: SearchResult[], maxResults: number): SearchResult[] {
-  if (results.length <= maxResults) return results
-
-  const engineGroups = new Map<string, SearchResult[]>()
-  for (const r of results) {
-    const list = engineGroups.get(r.engine) || []
-    list.push(r)
-    engineGroups.set(r.engine, list)
-  }
-
-  const engines = [...engineGroups.keys()]
-  const totalEngines = engines.length
-  const minPerEngine = Math.max(1, Math.floor(maxResults / totalEngines))
-
-  const out: SearchResult[] = []
-  const used = new Set<string>()
-
-  // round-robin: take minPerEngine from each engine
-  for (let round = 0; round < minPerEngine; round++) {
-    for (const e of engines) {
-      const group = engineGroups.get(e)!
-      if (out.length >= maxResults) break
-      const r = group[round]
-      if (r && !used.has(r.url)) {
-        out.push(r)
-        used.add(r.url)
-      }
-    }
-    if (out.length >= maxResults) break
-  }
-
-  // fill remaining slots with best scored
-  if (out.length < maxResults) {
-    for (const r of results) {
-      if (out.length >= maxResults) break
-      if (!used.has(r.url)) {
-        out.push(r)
-        used.add(r.url)
-      }
-    }
-  }
-
   return out
 }
 
@@ -288,9 +265,25 @@ export async function aggregateWithReport(options: SearchOptions): Promise<Aggre
     }
   }
 
-  let deduped = deduplicateAcrossEngines(ranked)
+  // dedup by content title first (catches cross-engine same-page duplicates)
+  let deduped = deduplicateByContent(ranked)
+  // then dedup by URL (catches same-engine duplicate URLs)
+  deduped = deduplicateByUrl(deduped)
 
-  deduped = diversifyResults(deduped, maxResults)
+  // engine-balance cap: at most ceil(maxResults / numEngines) per engine
+  // keeps score order while preventing one engine from dominating
+  const engines = new Set(deduped.map(r => r.engine))
+  const maxPerEngine = Math.max(1, Math.ceil(maxResults / Math.max(1, engines.size)))
+  const engineCount = new Map<string, number>()
+  const balanced: SearchResult[] = []
+  for (const r of deduped) {
+    const count = engineCount.get(r.engine) || 0
+    if (count >= maxPerEngine) continue
+    engineCount.set(r.engine, count + 1)
+    balanced.push(r)
+    if (balanced.length >= maxResults) break
+  }
+  deduped = balanced
 
   const final = deduped.slice(0, maxResults)
 
