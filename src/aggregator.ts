@@ -174,7 +174,25 @@ export async function aggregateWithReport(options: SearchOptions): Promise<Aggre
 
   scored.sort((a, b) => b.score - a.score)
 
-  const ranked = scored.map(x => x.result)
+  let ranked = scored.map(x => x.result)
+
+  // Fallback: if relevance filtering removed everything, try with simplified query
+  if (ranked.length === 0 && all.length > 0) {
+    const coreTerms = query.replace(/[^\w\u4e00-\u9fff\s]/g, ' ').split(/\s+/).filter(t => t.length > 1)
+    if (coreTerms.length > 1) {
+      const simplified = coreTerms.slice(0, 2).join(' ')
+      const fallbackScored = trimmed
+        .map(r => ({ result: r, score: scoreRelevance(simplified, r) }))
+        .filter(x => x.score > 0)
+      fallbackScored.sort((a, b) => b.score - a.score)
+      ranked = fallbackScored.map(x => x.result)
+    }
+    // Second fallback: include top results anyway with a warning marker
+    if (ranked.length === 0 && all.length > 0) {
+      ranked = all.slice(0, maxResults)
+    }
+  }
+
   const deduped = deduplicateAcrossEngines(ranked, maxResults)
 
   return { results: deduped.slice(0, maxResults), reports }

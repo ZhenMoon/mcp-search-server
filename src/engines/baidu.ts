@@ -1,15 +1,12 @@
 import * as cheerio from 'cheerio'
 import type { SearchResult, SearchEngine } from '../types.js'
+import { getCookie, setCookie, clearCookies, parseSetCookie, warmUp } from '../session.js'
 
 const BASE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
-
-// Simple cookie jar
-let cookieJar = ''
-let lastCookieRefresh = 0
-const COOKIE_TTL = 5 * 60 * 1000 // 5 min
+const DOMAIN = 'baidu.com'
 
 function buildHeaders(extra: Record<string, string> = {}): Record<string, string> {
-  const now = Date.now()
+  const cookie = getCookie(DOMAIN)
   return {
     'User-Agent': BASE_UA,
     Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -26,37 +23,8 @@ function buildHeaders(extra: Record<string, string> = {}): Record<string, string
     'sec-ch-ua-mobile': '?0',
     'sec-ch-ua-platform': '"Windows"',
     Connection: 'keep-alive',
-    ...(cookieJar ? { Cookie: cookieJar } : {}),
+    ...(cookie ? { Cookie: cookie } : {}),
     ...extra,
-  }
-}
-
-async function refreshCookies(signal?: AbortSignal): Promise<void> {
-  const now = Date.now()
-  if (cookieJar && now - lastCookieRefresh < COOKIE_TTL) return
-
-  try {
-    const res = await fetch('https://www.baidu.com/', {
-      headers: buildHeaders({ Referer: 'https://www.baidu.com/' }),
-      signal,
-      redirect: 'manual',
-    })
-    const setCookie = res.headers.get('set-cookie') || ''
-    if (setCookie) {
-      const parsed: string[] = []
-      const cookies = setCookie.split(/,(?=\s*[a-zA-Z])/)
-      for (const c of cookies) {
-        const pair = c.split(';')[0]?.trim()
-        if (pair && !pair.includes('=')) continue
-        if (pair) parsed.push(pair)
-      }
-      if (parsed.length > 0) {
-        cookieJar = parsed.join('; ')
-        lastCookieRefresh = now
-      }
-    }
-  } catch {
-    // cookie refresh failure is non-fatal
   }
 }
 
@@ -149,9 +117,8 @@ export class BaiduEngine implements SearchEngine {
   async search(query: string, maxResults: number, signal?: AbortSignal): Promise<SearchResult[]> {
     const results: SearchResult[] = []
 
-    await refreshCookies(signal)
-
-    if (cookieJar) {
+    await warmUp('https://www.baidu.com/', DOMAIN, buildHeaders({ Referer: 'https://www.baidu.com/' }), signal)
+    if (getCookie(DOMAIN)) {
       await randomDelay(300, 1000)
     }
 
@@ -165,9 +132,8 @@ export class BaiduEngine implements SearchEngine {
           consecutiveEmpty++
           if (consecutiveEmpty >= 2) break
           // retry with fresh cookies
-          cookieJar = ''
-          lastCookieRefresh = 0
-          await refreshCookies(signal)
+          clearCookies(DOMAIN)
+          await warmUp('https://www.baidu.com/', DOMAIN, buildHeaders({ Referer: 'https://www.baidu.com/' }), signal)
           await randomDelay(500, 1500)
           continue
         }
