@@ -10,6 +10,8 @@ const CHROME_PATHS = [
   'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
 ]
 
+const USER_DATA_DIR = '.chrome-profile'
+
 function findChrome(): string | undefined {
   try {
     const fs = require('fs') as typeof import('fs')
@@ -20,12 +22,30 @@ function findChrome(): string | undefined {
 }
 
 export function isBrowserEnabled(): boolean {
-  if (process.env.HEADLESS_BROWSER !== 'true' && process.env.HEADLESS_BROWSER !== '1') return false
-  return !!findChrome()
+  return process.env.HEADLESS_BROWSER === 'true' || process.env.HEADLESS_BROWSER === '1'
+    || !!process.env.CHROME_DEBUG_URL
+}
+
+export function hasExistingBrowser(): boolean {
+  return !!process.env.CHROME_DEBUG_URL
 }
 
 async function lazyPuppeteer(): Promise<typeof import('puppeteer-core')> {
   return import('puppeteer-core')
+}
+
+function findUserDataDir(): string | undefined {
+  const LOCAL_APP_DATA = process.env.LOCALAPPDATA || ''
+  const profiles = [
+    `${LOCAL_APP_DATA}\\Google\\Chrome\\User Data\\Default`,
+    `${LOCAL_APP_DATA}\\Microsoft\\Edge\\User Data\\Default`,
+  ]
+  try {
+    const fs = require('fs') as typeof import('fs')
+    return profiles.find(p => fs.existsSync(p))
+  } catch {
+    return undefined
+  }
 }
 
 async function getBrowser(): Promise<Browser> {
@@ -33,15 +53,29 @@ async function getBrowser(): Promise<Browser> {
   if (launching) return launching
 
   launching = (async () => {
-    const exePath = process.env.CHROME_PATH || findChrome()
-    if (!exePath) throw new Error(
-      'Chrome/Edge not found. Set HEADLESS_BROWSER=true and optionally CHROME_PATH for custom path.'
-    )
-
     const puppeteer = await lazyPuppeteer()
+
+    // Option 1: connect to existing Chrome via debug URL
+    const debugUrl = process.env.CHROME_DEBUG_URL
+    if (debugUrl) {
+      try {
+        const b = await puppeteer.connect({ browserURL: debugUrl })
+        browser = b
+        launching = null
+        return b
+      } catch {
+        // fall through to launch
+      }
+    }
+
+    // Option 2: launch Chrome with persistent profile
+    const exePath = process.env.CHROME_PATH || findChrome()
+    if (!exePath) throw new Error('Chrome/Edge not found. Set HEADLESS_BROWSER=true or CHROME_PATH.')
+
     const b = await puppeteer.launch({
       executablePath: exePath,
       headless: true,
+      userDataDir: USER_DATA_DIR,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -63,8 +97,6 @@ export async function getPage(): Promise<Page | null> {
   try {
     const b = await getBrowser()
     const page = await b.newPage()
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36')
-    await page.setExtraHTTPHeaders({ 'Accept-Language': 'zh-CN,zh;q=0.9' })
     return page
   } catch {
     return null

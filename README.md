@@ -115,9 +115,11 @@ npm run build
 | `SEARCH_ENGINES` | 启用指定引擎（逗号分隔） | `bing,baidu,360` |
 | `SEARCH_DISABLED_ENGINES` | 禁用指定引擎 | `duckduckgo,brave,sogou` |
 | `HEADLESS_BROWSER` | 启用无头浏览器（需要 Chrome/Edge） | `true` |
+| `CHROME_DEBUG_URL` | 连接已有 Chrome（如 `http://127.0.0.1:9222`），需 Chrome 启动时加 `--remote-debugging-port=9222` | — |
 | `BRAVE_API_KEY` | Brave Search API 密钥（免费 1000 次/月） | 在 https://brave.com/search/api/ 申请 |
 
 启用无头浏览器后，知乎引擎会通过 Puppeteer 直连知乎搜索（而非依赖 Bing `site:`），搜索质量更高。
+设置 `CHROME_DEBUG_URL` 可连接到用户正在使用的 Chrome，共享 cookies 和登录态，绕过部分验证码。
 设置 `BRAVE_API_KEY` 后 Brave 引擎使用官方 API，国内网络也能稳定返回国际搜索结果。
 国内网络建议：
 ```bash
