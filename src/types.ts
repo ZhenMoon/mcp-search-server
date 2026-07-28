@@ -10,7 +10,6 @@ export interface SearchOptions {
   maxResults?: number
   engines?: string[]
   timeout?: number
-  useNeural?: boolean
 }
 
 export interface SearchEngine {

@@ -9,7 +9,6 @@ import { ZhihuEngine } from './engines/zhihu.js'
 import { deduplicate } from './dedup.js'
 import { trimResults, isFreshnessQuery, isStaticPage } from './filter.js'
 import { adaptQuery, getQueryInfo } from './queryAdapter.js'
-import { semanticDeduplicate, rerankResults } from './neural.js'
 import { getCached, setCache } from './cache.js'
 import { isEngineAvailable, recordFailure, recordSuccess } from './circuitBreaker.js'
 import { expandQuery } from './queryExpander.js'
@@ -165,11 +164,10 @@ export async function aggregateWithReport(options: SearchOptions): Promise<Aggre
     maxResults = 10,
     engines: engineNames = ['bing', 'sogou', 'baidu', 'github', 'zhihu'],
     timeout = DEFAULT_TIMEOUT,
-    useNeural = false,
   } = options
 
   // cache check
-  const cached = await getCached(query, engineNames as string[], useNeural)
+  const cached = await getCached(query, engineNames as string[], false)
   if (cached) {
     return {
       results: cached.results.slice(0, maxResults),
@@ -288,17 +286,12 @@ export async function aggregateWithReport(options: SearchOptions): Promise<Aggre
 
   let deduped = deduplicateAcrossEngines(ranked, maxResults)
 
-  if (useNeural) {
-    deduped = await semanticDeduplicate(deduped, 0.85)
-    deduped = await rerankResults(query, deduped)
-  }
-
   deduped = diversifyResults(deduped, maxResults)
 
   const final = deduped.slice(0, maxResults)
 
   // write cache
-  setCache(query, engineNames as string[], useNeural, { results: final, reports })
+  setCache(query, engineNames as string[], false, { results: final, reports })
 
   return { results: final, reports }
 }

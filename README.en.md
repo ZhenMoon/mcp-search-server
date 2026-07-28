@@ -4,11 +4,10 @@
 
 <div align="center">
 
-Multi-engine aggregated search MCP server — **7 engines parallel** + **AI semantic dedup/rerank** + **page fetch** + **deep research**.
+Multi-engine aggregated search MCP server — **7 engines parallel** + **page fetch** + **deep research**.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
-[![Xenova](https://img.shields.io/badge/AI-Transformers.js-orange)](https://huggingface.co/Xenova)
 
 Compatible with **Cursor** · **Claude Desktop** · **Continue.dev** · **Windsurf** · **Trae**
 
@@ -34,9 +33,7 @@ Compatible with **Cursor** · **Claude Desktop** · **Continue.dev** · **Windsu
 ## Features
 
 - **Multi-engine Parallel** — Queries 7 engines simultaneously; `Promise.allSettled` ensures single engine failure doesn't affect overall result
-- **AI Semantic Dedup** (optional) — Jina-Embeddings-v2 cosine similarity dedup, replacing traditional Jaccard
-- **AI Re-ranking** (optional) — BGE-Reranker-v2-m3 Cross-encoder relevance scoring
-- **AI Summarization** — DistilBART-CNN for article summarization (`summarize` / `fetch_and_summarize`)
+- **Composite Tools** — `search_and_fetch` fetches pages alongside search results
 - **Deep Research** — `research` does search → fetch → per-page summary → conclusion in one step
 - **Composite Tools** — `search_and_fetch` fetches pages alongside search results
 - **Search Sessions** — Persistent results, `refine` for secondary filtering (engine/keyword/domain/pagination)
@@ -153,21 +150,6 @@ No parameters.
 | `timeout` | `number` | `15000` | Fetch timeout (ms) |
 | `maxLength` | `number` | `8000` | Max content length to return |
 
-### `summarize` — AI summarization (DistilBART-CNN)
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `text` | `string` | **required** | Text to summarize (min 50 chars) |
-| `maxLength` | `number` | `150` | Max summary length |
-
-### `neural` — AI model status
-
-No parameters. Shows load status for embedding, reranker, and summarizer models.
-
----
-
-## Composite Tools
-
 ### `search_and_fetch` — Search + fetch page content
 
 | Parameter | Type | Default | Description |
@@ -178,15 +160,6 @@ No parameters. Shows load status for embedding, reranker, and summarizer models.
 | `engines` | `string[]` | 5 engines | Search engines |
 | `timeout` | `number` | `15000` | Timeout (ms) |
 | `profile` | `string` | — | Search profile |
-| `useNeural` | `boolean` | `false` | Enable AI dedup+rerank |
-
-### `fetch_and_summarize` — Fetch + AI summarization
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `url` | `string` | **required** | Page URL |
-| `timeout` | `number` | `15000` | Fetch timeout (ms) |
-| `summaryMaxLength` | `number` | `150` | Max summary length |
 
 ### `research` — Deep research (search → fetch → report)
 
@@ -197,23 +170,8 @@ No parameters. Shows load status for embedding, reranker, and summarizer models.
 | `fetchCount` | `number` | `3` | Deep-read top N |
 | `engines` | `string[]` | 5 engines | Search engines |
 | `timeout` | `number` | `20000` | Timeout (ms) |
-| `useNeural` | `boolean` | `false` | Enable AI dedup+rerank |
 
 ---
-
-## AI Models
-
-Models are downloaded from Hugging Face on first use (~1.2GB cache):
-
-| Purpose | Model | Size | Notes |
-|---------|-------|------|-------|
-| Semantic dedup | Jina-Embeddings-v2 (300M) | ~120MB | Cosine similarity > 0.85 merge |
-| Reranking | BGE-Reranker-v2-m3 (500M) | ~500MB | Cross-encoder relevance sorting |
-| Summarization | DistilBART-CNN (400M) | ~400MB | AI-generated summaries |
-
-Enable via `search(query, useNeural: true)`.
-Use `summarize(text)` for direct AI summarization.
-Set `PRELOAD_MODELS=1` to warm up models on server start.
 
 ---
 
@@ -229,7 +187,6 @@ mcp-search-server/
 │   ├── dedupContent.ts       # Page content deduplication
 │   ├── filter.ts             # Spam filtering
 │   ├── fetcher.ts            # Page fetching (Readability)
-│   ├── neural.ts             # AI model manager (Transformers.js)
 │   ├── searchContext.ts      # Search session management
 │   ├── session.ts            # Cookie session management
 │   └── engines/

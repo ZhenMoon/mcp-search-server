@@ -4,11 +4,10 @@
 
 <div align="center">
 
-多引擎聚合搜索 MCP 服务器 — **7 引擎并行** + **AI 语义去重/重排序** + **网页正文提取** + **深度研究**。
+多引擎聚合搜索 MCP 服务器 — **7 引擎并行** + **网页正文提取** + **深度研究**。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
-[![Xenova](https://img.shields.io/badge/AI-Transformers.js-orange)](https://huggingface.co/Xenova)
 
 兼容 **Cursor** · **Claude Desktop** · **Continue.dev** · **Windsurf** · **Trae**
 
@@ -34,11 +33,8 @@
 ## 功能特性
 
 - **多引擎并行** — 同时调用 7 个搜索引擎；`Promise.allSettled` 确保单引擎失败不影响整体
-- **AI 语义去重**（可选）— Jina-Embeddings-v2 余弦相似度去重，替代传统 Jaccard
-- **AI 重排序**（可选）— BGE-Reranker-v2-m3 Cross-encoder 关联性评分
-- **AI 摘要生成** — DistilBART-CNN 生成文章摘要（`summarize` / `fetch_and_summarize`）
-- **深度研究** — `research` 一键搜索 → 抓取 → 逐篇摘要 → 综合结论
-- **复合工具** — `search_and_fetch` 搜索同时抓取正文、`fetch_and_summarize` 抓取即摘要
+- **深度研究** — `research` 一键搜索 → 抓取 → 综合结论
+- **复合工具** — `search_and_fetch` 搜索同时抓取正文
 - **搜索会话** — 结果持久化，`refine` 二次过滤（引擎/关键词/域名/分页）
 - **搜索场景** — `profile` 参数：general / tech / chinese / code / fast / deep
 - **无用过滤** — 剔除广告词、导航词、跟踪参数/域名、短摘要、错误页面
@@ -158,23 +154,6 @@ SEARCH_DISABLED_ENGINES=duckduckgo,brave node build/index.js
 | `timeout` | `number` | `15000` | 抓取超时（毫秒） |
 | `maxLength` | `number` | `8000` | 返回内容最大长度 |
 
-### `summarize` — AI 摘要生成（DistilBART-CNN）
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `text` | `string` | **必填** | 文本内容（至少 50 字符） |
-| `maxLength` | `number` | `150` | 摘要最大长度 |
-
-### `neural` — AI 模型状态
-
-无参数。显示嵌入、重排序、摘要三类模型的加载状态。
-
----
-
-## 复合工具
-
-工具可组合使用，一步完成复杂工作流：
-
 ### `search_and_fetch` — 搜索 + 抓取正文
 
 | 参数 | 类型 | 默认值 | 说明 |
@@ -185,15 +164,6 @@ SEARCH_DISABLED_ENGINES=duckduckgo,brave node build/index.js
 | `engines` | `string[]` | 默认 5 引擎 | 搜索引擎列表 |
 | `timeout` | `number` | `15000` | 超时(毫秒) |
 | `profile` | `string` | — | 搜索场景 |
-| `useNeural` | `boolean` | `false` | 启用 AI 去重+重排序 |
-
-### `fetch_and_summarize` — 抓取 + AI 摘要
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `url` | `string` | **必填** | 网页 URL |
-| `timeout` | `number` | `15000` | 抓取超时(毫秒) |
-| `summaryMaxLength` | `number` | `150` | 摘要最大长度 |
 
 ### `research` — 深度研究（搜索 → 抓取 → 综合报告）
 
@@ -204,23 +174,8 @@ SEARCH_DISABLED_ENGINES=duckduckgo,brave node build/index.js
 | `fetchCount` | `number` | `3` | 深入阅读前 N 条 |
 | `engines` | `string[]` | 默认 5 引擎 | 搜索引擎列表 |
 | `timeout` | `number` | `20000` | 超时(毫秒) |
-| `useNeural` | `boolean` | `false` | 启用 AI 去重+重排序 |
 
 ---
-
-## AI 模型
-
-首次使用需从 Hugging Face 下载 ONNX 模型（约 1.2GB 缓存）：
-
-| 用途 | 模型 | 大小 | 说明 |
-|------|------|------|------|
-| 语义去重 | Jina-Embeddings-v2 (300M) | ~120MB | 余弦相似度 > 0.85 合并 |
-| 重排序 | BGE-Reranker-v2-m3 (500M) | ~500MB | Cross-encoder 关联性评分 |
-| 摘要生成 | DistilBART-CNN (400M) | ~400MB | 生成更准确的摘要 |
-
-通过 `search(query, useNeural: true)` 启用 AI 语义去重+重排序。
-通过 `summarize(text)` 直接生成摘要。
-通过 `PRELOAD_MODELS=1` 环境变量在服务启动时预热模型。
 
 ---
 
@@ -236,7 +191,6 @@ mcp-search-server/
 │   ├── dedupContent.ts       # 网页正文去重
 │   ├── filter.ts             # 无用信息过滤
 │   ├── fetcher.ts            # 网页抓取 (Readability)
-│   ├── neural.ts             # AI 模型管理 (Transformers.js)
 │   ├── searchContext.ts      # 搜索结果会话管理
 │   ├── session.ts            # Cookie 会话管理
 │   └── engines/
