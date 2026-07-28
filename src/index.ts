@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { aggregateWithReport } from './aggregator.js'
 import { fetchPage } from './fetcher.js'
 import { adaptQuery, getQueryInfo } from './queryAdapter.js'
+import { saveResults, refineResults, SEARCH_PROFILES } from './searchContext.js'
 
 const ALL_ENGINES = ['duckduckgo', 'bing', 'sogou', 'baidu', 'brave', 'github', 'zhihu'] as const
 
@@ -43,19 +44,26 @@ server.tool(
       .default(defaultEngines())
       .describe('搜索引擎列表'),
     timeout: z.number().int().min(3000).max(60000).default(15000).describe('搜索超时(毫秒)'),
+    profile: z.string().optional().describe('搜索场景: general/tech/chinese/code/fast/deep'),
   },
-  async ({ query, maxResults, engines, timeout }) => {
-    const { results, reports } = await aggregateWithReport({ query, maxResults, engines, timeout })
+  async ({ query, maxResults, engines, timeout, profile }) => {
+    let activeEngines = engines
+    if (profile && SEARCH_PROFILES[profile]) {
+      activeEngines = SEARCH_PROFILES[profile].engines as typeof engines
+    }
+    const { results, reports } = await aggregateWithReport({ query, maxResults, engines: activeEngines, timeout })
     if (results.length === 0) {
       const statusLine = reports.map(r => `${r.engine}=${r.status}${r.count > 0 ? `(${r.count})` : ''}`).join(' ')
       return { content: [{ type: 'text', text: `未找到结果\n引擎状态: ${statusLine}` }] }
     }
 
+    const sessionId = saveResults(query, results)
     const info = getQueryInfo(query)
     const header: string[] = []
     if (info.phrases.length > 0) header.push(`短语: ${info.phrases.join(', ')}`)
     if (info.exclusions.length > 0) header.push(`排除: ${info.exclusions.join(', ')}`)
     if (info.siteFilter) header.push(`限定站点: ${info.siteFilter}`)
+    if (profile && SEARCH_PROFILES[profile]) header.push(`场景: ${SEARCH_PROFILES[profile].label}`)
 
     const statusLine = reports.map(r =>
       r.status === 'ok' ? `${r.engine}(${r.count})` :
@@ -67,9 +75,44 @@ server.tool(
     return {
       content: [{
         type: 'text',
-        text: `${header.length > 0 ? `【查询解析】${header.join(' | ')}\n\n` : ''}【引擎状态】${statusLine}\n\n${body}`,
+        text: `【会话ID】${sessionId}\n${header.length > 0 ? `【查询解析】${header.join(' | ')}\n` : ''}【引擎状态】${statusLine}\n\n${body}`,
       }],
     }
+  },
+)
+
+server.tool(
+  'refine',
+  {
+    sessionId: z.string().describe('search 返回的会话 ID'),
+    engine: z.string().optional().describe('按引擎过滤，逗号分隔（如 bing,baidu）'),
+    keyword: z.string().optional().describe('关键词过滤'),
+    domain: z.string().optional().describe('域名过滤（如 zhihu.com）'),
+    offset: z.number().int().min(0).default(0).describe('偏移量'),
+    limit: z.number().int().min(1).max(50).default(10).describe('返回数量'),
+  },
+  async ({ sessionId, engine, keyword, domain, offset, limit }) => {
+    const { results, total } = refineResults(sessionId, { engine, keyword, domain, offset, limit })
+    if (results.length === 0) {
+      return { content: [{ type: 'text', text: `无匹配结果（共 ${total} 条原始结果）` }] }
+    }
+    return {
+      content: [{
+        type: 'text',
+        text: `【过滤结果】${results.length}/${total} 条\n\n${formatResults(results)}`,
+      }],
+    }
+  },
+)
+
+server.tool(
+  'search_profiles',
+  {},
+  async () => {
+    const lines = Object.entries(SEARCH_PROFILES).map(([id, p]) =>
+      `  ${id}: ${p.label} — ${p.description} (引擎: ${p.engines.join(', ')})`
+    )
+    return { content: [{ type: 'text', text: `可用搜索场景:\n${lines.join('\n')}` }] }
   },
 )
 
