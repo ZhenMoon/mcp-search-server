@@ -143,6 +143,33 @@ No parameters.
 | `timeout` | `number` | `15000` | Fetch timeout (ms) |
 | `maxLength` | `number` | `8000` | Max content length to return |
 
+### `summarize` — AI summarization (DistilBART-CNN)
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `text` | `string` | **required** | Text to summarize (min 50 chars) |
+| `maxLength` | `number` | `150` | Max summary length |
+
+### `neural` — AI model status
+
+No parameters. Shows load status for embedding, reranker, and summarizer models.
+
+---
+
+## AI Models
+
+Models are downloaded from Hugging Face on first use (~1.2GB cache):
+
+| Purpose | Model | Size | Notes |
+|---------|-------|------|-------|
+| Semantic dedup | Jina-Embeddings-v2 (300M) | ~120MB | Cosine similarity > 0.85 merge |
+| Reranking | BGE-Reranker-v2-m3 (500M) | ~500MB | Cross-encoder relevance sorting |
+| Summarization | DistilBART-CNN (400M) | ~400MB | AI-generated summaries |
+
+Enable via `search(query, useNeural: true)`.
+Use `summarize(text)` for direct AI summarization.
+Set `PRELOAD_MODELS=1` to warm up models on server start.
+
 ---
 
 ## Project Structure
@@ -157,6 +184,7 @@ mcp-search-server/
 │   ├── dedupContent.ts       # Page content deduplication
 │   ├── filter.ts             # Spam filtering
 │   ├── fetcher.ts            # Page fetching (Readability)
+│   ├── neural.ts             # AI model manager (Transformers.js)
 │   ├── searchContext.ts      # Search session management
 │   ├── session.ts            # Cookie session management
 │   └── engines/

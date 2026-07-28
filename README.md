@@ -148,6 +148,33 @@ SEARCH_DISABLED_ENGINES=duckduckgo,brave node build/index.js
 | `timeout` | `number` | `15000` | 抓取超时（毫秒） |
 | `maxLength` | `number` | `8000` | 返回内容最大长度 |
 
+### `summarize` — AI 摘要生成（DistilBART-CNN）
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `text` | `string` | **必填** | 文本内容（至少 50 字符） |
+| `maxLength` | `number` | `150` | 摘要最大长度 |
+
+### `neural` — AI 模型状态
+
+无参数。显示嵌入、重排序、摘要三类模型的加载状态。
+
+---
+
+## AI 模型
+
+首次使用需从 Hugging Face 下载 ONNX 模型（约 1.2GB 缓存）：
+
+| 用途 | 模型 | 大小 | 说明 |
+|------|------|------|------|
+| 语义去重 | Jina-Embeddings-v2 (300M) | ~120MB | 余弦相似度 > 0.85 合并 |
+| 重排序 | BGE-Reranker-v2-m3 (500M) | ~500MB | Cross-encoder 关联性评分 |
+| 摘要生成 | DistilBART-CNN (400M) | ~400MB | 生成更准确的摘要 |
+
+通过 `search(query, useNeural: true)` 启用 AI 语义去重+重排序。
+通过 `summarize(text)` 直接生成摘要。
+通过 `PRELOAD_MODELS=1` 环境变量在服务启动时预热模型。
+
 ---
 
 ## 项目结构
@@ -162,6 +189,7 @@ mcp-search-server/
 │   ├── dedupContent.ts       # 网页正文去重
 │   ├── filter.ts             # 无用信息过滤
 │   ├── fetcher.ts            # 网页抓取 (Readability)
+│   ├── neural.ts             # AI 模型管理 (Transformers.js)
 │   ├── searchContext.ts      # 搜索结果会话管理
 │   ├── session.ts            # Cookie 会话管理
 │   └── engines/

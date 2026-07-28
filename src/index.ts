@@ -7,6 +7,7 @@ import { aggregateWithReport } from './aggregator.js'
 import { fetchPage } from './fetcher.js'
 import { adaptQuery, getQueryInfo } from './queryAdapter.js'
 import { saveResults, refineResults, SEARCH_PROFILES } from './searchContext.js'
+import { summarizeText, preloadAll, isEmbeddingLoaded, isRerankerLoaded, isSummarizerLoaded } from './neural.js'
 
 const ALL_ENGINES = ['duckduckgo', 'bing', 'sogou', 'baidu', 'brave', 'github', 'zhihu'] as const
 
@@ -45,13 +46,14 @@ server.tool(
       .describe('搜索引擎列表'),
     timeout: z.number().int().min(3000).max(60000).default(15000).describe('搜索超时(毫秒)'),
     profile: z.string().optional().describe('搜索场景: general/tech/chinese/code/fast/deep'),
+    useNeural: z.boolean().default(false).describe('启用 AI 语义去重 + 重排序（首次使用需下载模型）'),
   },
-  async ({ query, maxResults, engines, timeout, profile }) => {
+  async ({ query, maxResults, engines, timeout, profile, useNeural }) => {
     let activeEngines = engines
     if (profile && SEARCH_PROFILES[profile]) {
       activeEngines = SEARCH_PROFILES[profile].engines as typeof engines
     }
-    const { results, reports } = await aggregateWithReport({ query, maxResults, engines: activeEngines, timeout })
+    const { results, reports } = await aggregateWithReport({ query, maxResults, engines: activeEngines, timeout, useNeural })
     if (results.length === 0) {
       const statusLine = reports.map(r => `${r.engine}=${r.status}${r.count > 0 ? `(${r.count})` : ''}`).join(' ')
       return { content: [{ type: 'text', text: `未找到结果\n引擎状态: ${statusLine}` }] }
@@ -207,6 +209,38 @@ server.tool(
 )
 
 server.tool(
+  'summarize',
+  {
+    text: z.string().min(50).describe('要摘要的文本（至少 50 字符）'),
+    maxLength: z.number().int().min(30).max(500).default(150).describe('摘要最大长度'),
+  },
+  async ({ text, maxLength }) => {
+    try {
+      const summary = await summarizeText(text, maxLength)
+      return { content: [{ type: 'text', text: `【AI 摘要】\n${summary}` }] }
+    } catch (e) {
+      return { content: [{ type: 'text', text: `摘要生成失败: ${e}` }] }
+    }
+  },
+)
+
+server.tool(
+  'neural',
+  {},
+  async () => {
+    const lines = [
+      `嵌入模型 (Jina-Embeddings-v2): ${isEmbeddingLoaded() ? '✅ 已加载' : '❌ 未加载'}`,
+      `重排序 (BGE-Reranker-v2-m3): ${isRerankerLoaded() ? '✅ 已加载' : '❌ 未加载'}`,
+      `摘要生成 (DistilBART-CNN): ${isSummarizerLoaded() ? '✅ 已加载' : '❌ 未加载'}`,
+      '',
+      '使用 search(query, useNeural: true) 激活 AI 语义去重 + 重排序',
+      '使用 summarize(text) 生成 AI 摘要',
+    ]
+    return { content: [{ type: 'text', text: lines.join('\n') }] }
+  },
+)
+
+server.tool(
   'fetch',
   {
     url: z.string().url().describe('要抓取的网页 URL'),
@@ -243,6 +277,10 @@ function formatResults(results: Array<{ title: string; url: string; description:
 }
 
 async function main() {
+  if (process.env.PRELOAD_MODELS === '1') {
+    console.error('[预热] 开始下载 AI 模型...')
+    preloadAll().then(() => console.error('[预热] AI 模型加载完成')).catch(() => {})
+  }
   const transport = new StdioServerTransport()
   await server.connect(transport)
 }

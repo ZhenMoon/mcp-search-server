@@ -9,6 +9,7 @@ import { ZhihuEngine } from './engines/zhihu.js'
 import { deduplicate } from './dedup.js'
 import { trimResults } from './filter.js'
 import { adaptQuery, getQueryInfo } from './queryAdapter.js'
+import { semanticDeduplicate, rerankResults } from './neural.js'
 
 const ENGINES: Record<string, SearchEngine> = {
   duckduckgo: new DuckDuckGoEngine(),
@@ -111,6 +112,7 @@ export async function aggregateWithReport(options: SearchOptions): Promise<Aggre
     maxResults = 10,
     engines: engineNames = ['bing', 'sogou', 'baidu', 'github', 'zhihu'],
     timeout = DEFAULT_TIMEOUT,
+    useNeural = false,
   } = options
 
   const selectedEngines = engineNames
@@ -193,7 +195,12 @@ export async function aggregateWithReport(options: SearchOptions): Promise<Aggre
     }
   }
 
-  const deduped = deduplicateAcrossEngines(ranked, maxResults)
+  let deduped = deduplicateAcrossEngines(ranked, maxResults)
+
+  if (useNeural) {
+    deduped = await semanticDeduplicate(deduped, 0.85)
+    deduped = await rerankResults(query, deduped)
+  }
 
   return { results: deduped.slice(0, maxResults), reports }
 }
