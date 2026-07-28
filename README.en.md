@@ -4,7 +4,7 @@
 
 <div align="center">
 
-Multi-engine aggregated search MCP server — **8 engines parallel** + **page fetch** + **deep research**.
+Multi-engine aggregated search MCP server — **8 engines parallel** + **page fetch** + **deep research** + **optional headless browser**.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
@@ -46,6 +46,7 @@ Compatible with **Cursor** · **Claude Desktop** · **Continue.dev** · **Windsu
 - **MCP Protocol** — Standard stdio transport, works with Cursor/Claude Desktop out of the box
 - **Privacy-first** — Fully local, search history never leaves your machine
 - **Zero API Cost** — Uses free search engines directly, no paid API required
+- **Headless Browser** — Set `HEADLESS_BROWSER=true` to enable Puppeteer; Zhihu engine uses direct search, bypassing 403 restrictions
 - **Configurable** — Choose which engines to enable via environment variables
 
 ---

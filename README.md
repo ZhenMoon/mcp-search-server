@@ -4,7 +4,7 @@
 
 <div align="center">
 
-多引擎聚合搜索 MCP 服务器 — **8 引擎并行** + **网页正文提取** + **深度研究**。
+多引擎聚合搜索 MCP 服务器 — **8 引擎并行** + **网页正文提取** + **深度研究** + **可选无头浏览器**。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
@@ -46,6 +46,7 @@
 - **MCP 协议** — 标准 stdio 传输，Cursor/Claude Desktop 即插即用
 - **隐私安全** — 全部本地运行，搜索记录不经过任何第三方服务器
 - **零 API 费用** — 直接调用免费搜索引擎，无需付费 API
+- **无头浏览器** — 设置 `HEADLESS_BROWSER=true` 启用 Puppeteer，知乎直连搜索，绕过 403 限制
 - **可配置** — 通过环境变量自由组合引擎
 
 ---
