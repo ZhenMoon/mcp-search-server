@@ -4,7 +4,7 @@
 
 <div align="center">
 
-Multi-engine aggregated search MCP server — **7 engines parallel** + **page fetch** + **deep research**.
+Multi-engine aggregated search MCP server — **8 engines parallel** + **page fetch** + **deep research**.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
@@ -32,14 +32,17 @@ Compatible with **Cursor** · **Claude Desktop** · **Continue.dev** · **Windsu
 
 ## Features
 
-- **Multi-engine Parallel** — Queries 7 engines simultaneously; `Promise.allSettled` ensures single engine failure doesn't affect overall result
-- **Composite Tools** — `search_and_fetch` fetches pages alongside search results
+- **Multi-engine Parallel** — Queries 8 engines simultaneously; `Promise.allSettled` ensures single engine failure doesn't affect overall result
 - **Deep Research** — `research` does search → fetch → per-page summary → conclusion in one step
 - **Composite Tools** — `search_and_fetch` fetches pages alongside search results
 - **Search Sessions** — Persistent results, `refine` for secondary filtering (engine/keyword/domain/pagination)
 - **Search Profiles** — `profile` parameter: general / tech / chinese / code / fast / deep
+- **Result Aggregation** — Cross-engine deduplication (URL + title similarity), relevance scoring, engine-balanced output
+- **Query Expansion** — Automatic synonym expansion when results are scarce, improving recall
 - **Spam Filtering** — Removes ads, navigation keywords, tracking parameters/domains, short descriptions, and error pages
 - **Page Fetching** — Mozilla Readability content extraction, auto-removes duplicates, copyright notices, and tail recommendations
+- **Disk Cache** — 5-minute TTL, sub-second response for repeated queries
+- **Circuit Breaker** — Automatic 30s cooldown after consecutive engine failures, full reset on success
 - **MCP Protocol** — Standard stdio transport, works with Cursor/Claude Desktop out of the box
 - **Privacy-first** — Fully local, search history never leaves your machine
 - **Zero API Cost** — Uses free search engines directly, no paid API required
@@ -52,14 +55,17 @@ Compatible with **Cursor** · **Claude Desktop** · **Continue.dev** · **Windsu
 | Engine | Type | Notes |
 |--------|------|-------|
 | `bing` | General | Microsoft Bing, good for Chinese queries |
-| `sogou` | General | Sogou Search |
 | `baidu` | General | Baidu Search |
+| `360` | General | 360 Search (so.com), accessible from China |
+| `sogou` | General | Sogou Search (aggressive anti-scraping) |
 | `duckduckgo` | General | DuckDuckGo (may be blocked in China) |
 | `brave` | General | Brave Search (may be blocked in China) |
 | `github` | Code | GitHub repository search |
 | `zhihu` | Content | Zhihu Q&A (via Bing `site:` search) |
 
-Default engines: `bing` `sogou` `baidu` `github` `zhihu`
+Default engines: `bing` `baidu` `360` `github` `zhihu`
+
+> For users in China: sogou / duckduckgo / brave may be unreliable. Use `SEARCH_DISABLED_ENGINES` to disable them.
 
 ---
 
@@ -104,8 +110,12 @@ Add the following entry to your MCP client config (replace `<path>` with your ac
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `SEARCH_ENGINES` | Comma-separated list of engines to enable | `bing,baidu,github` |
-| `SEARCH_DISABLED_ENGINES` | Comma-separated list of engines to disable | `duckduckgo,brave` |
+| `SEARCH_ENGINES` | Comma-separated list of engines to enable | `bing,baidu,360` |
+| `SEARCH_DISABLED_ENGINES` | Comma-separated list of engines to disable | `duckduckgo,brave,sogou` |
+
+```bash
+SEARCH_DISABLED_ENGINES=duckduckgo,brave,sogou node build/index.js
+```
 
 ---
 
@@ -173,8 +183,6 @@ No parameters.
 
 ---
 
----
-
 ## Project Structure
 
 ```
@@ -182,17 +190,19 @@ mcp-search-server/
 ├── src/
 │   ├── index.ts              # MCP server entry point
 │   ├── types.ts              # Type definitions
-│   ├── aggregator.ts         # Multi-engine aggregation & relevance scoring
-│   ├── dedup.ts              # Search result deduplication
-│   ├── dedupContent.ts       # Page content deduplication
+│   ├── aggregator.ts         # Multi-engine aggregation, dedup, scoring
+│   ├── cache.ts              # Disk cache (TTL 5min)
+│   ├── circuitBreaker.ts     # Engine circuit breaker
 │   ├── filter.ts             # Spam filtering
+│   ├── queryExpander.ts      # Synonym query expansion
+│   ├── queryAdapter.ts       # Engine-specific query adaptation
 │   ├── fetcher.ts            # Page fetching (Readability)
 │   ├── searchContext.ts      # Search session management
-│   ├── session.ts            # Cookie session management
 │   └── engines/
 │       ├── bing.ts           # Bing
-│       ├── sogou.ts          # Sogou
 │       ├── baidu.ts          # Baidu
+│       ├── 360.ts            # 360 Search
+│       ├── sogou.ts          # Sogou
 │       ├── duckduckgo.ts     # DuckDuckGo
 │       ├── brave.ts          # Brave Search
 │       ├── github.ts         # GitHub

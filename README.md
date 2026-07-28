@@ -4,7 +4,7 @@
 
 <div align="center">
 
-多引擎聚合搜索 MCP 服务器 — **7 引擎并行** + **网页正文提取** + **深度研究**。
+多引擎聚合搜索 MCP 服务器 — **8 引擎并行** + **网页正文提取** + **深度研究**。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
@@ -32,13 +32,17 @@
 
 ## 功能特性
 
-- **多引擎并行** — 同时调用 7 个搜索引擎；`Promise.allSettled` 确保单引擎失败不影响整体
+- **多引擎并行** — 同时调用 8 个搜索引擎；`Promise.allSettled` 确保单引擎失败不影响整体
 - **深度研究** — `research` 一键搜索 → 抓取 → 综合结论
 - **复合工具** — `search_and_fetch` 搜索同时抓取正文
 - **搜索会话** — 结果持久化，`refine` 二次过滤（引擎/关键词/域名/分页）
 - **搜索场景** — `profile` 参数：general / tech / chinese / code / fast / deep
+- **结果聚合** — 多引擎去重（URL + 标题相似度）、关联性评分排序、引擎均衡输出
+- **查询扩展** — 结果不足时自动用同义词扩展查询，提升召回率
 - **无用过滤** — 剔除广告词、导航词、跟踪参数/域名、短摘要、错误页面
 - **网页抓取** — 使用 Mozilla Readability 提取正文，自动删除重复段落、版权声明、尾部推荐内容
+- **磁盘缓存** — 5 分钟 TTL，重复查询秒级响应
+- **熔断保护** — 引擎连续失败后自动冷却 30 秒，成功后全额重置
 - **MCP 协议** — 标准 stdio 传输，Cursor/Claude Desktop 即插即用
 - **隐私安全** — 全部本地运行，搜索记录不经过任何第三方服务器
 - **零 API 费用** — 直接调用免费搜索引擎，无需付费 API
@@ -51,14 +55,17 @@
 | 引擎 | 类型 | 说明 |
 |------|------|------|
 | `bing` | 通用 | 微软必应，中文搜索结果较好 |
-| `sogou` | 通用 | 搜狗搜索 |
 | `baidu` | 通用 | 百度搜索 |
+| `360` | 通用 | 360 搜索（so.com），国内可用 |
+| `sogou` | 通用 | 搜狗搜索（反爬限制较严） |
 | `duckduckgo` | 通用 | DuckDuckGo（国内网络可能被阻断） |
 | `brave` | 通用 | Brave Search（国内网络可能被阻断） |
 | `github` | 代码 | GitHub 仓库搜索 |
 | `zhihu` | 内容 | 知乎（通过 Bing `site:` 搜索） |
 
-默认启用：`bing` `sogou` `baidu` `github` `zhihu`
+默认启用：`bing` `baidu` `360` `github` `zhihu`
+
+> 国内网络建议：sogou / duckduckgo / brave 可能失效，可用 `SEARCH_DISABLED_ENGINES` 禁用。
 
 ---
 
@@ -103,12 +110,12 @@ npm run build
 
 | 变量 | 说明 | 示例 |
 |------|------|------|
-| `SEARCH_ENGINES` | 启用指定引擎（逗号分隔） | `bing,baidu,github` |
-| `SEARCH_DISABLED_ENGINES` | 禁用指定引擎 | `duckduckgo,brave` |
+| `SEARCH_ENGINES` | 启用指定引擎（逗号分隔） | `bing,baidu,360` |
+| `SEARCH_DISABLED_ENGINES` | 禁用指定引擎 | `duckduckgo,brave,sogou` |
 
 国内网络建议：
 ```bash
-SEARCH_DISABLED_ENGINES=duckduckgo,brave node build/index.js
+SEARCH_DISABLED_ENGINES=duckduckgo,brave,sogou node build/index.js
 ```
 
 ---
@@ -177,8 +184,6 @@ SEARCH_DISABLED_ENGINES=duckduckgo,brave node build/index.js
 
 ---
 
----
-
 ## 项目结构
 
 ```
@@ -186,17 +191,19 @@ mcp-search-server/
 ├── src/
 │   ├── index.ts              # MCP 服务器入口
 │   ├── types.ts              # 类型定义
-│   ├── aggregator.ts         # 多引擎聚合 + 相关性评分
-│   ├── dedup.ts              # 搜索结果去重
-│   ├── dedupContent.ts       # 网页正文去重
+│   ├── aggregator.ts         # 多引擎聚合 + 去重 + 排序
+│   ├── cache.ts              # 磁盘缓存 (TTL 5min)
+│   ├── circuitBreaker.ts     # 引擎熔断保护
 │   ├── filter.ts             # 无用信息过滤
+│   ├── queryExpander.ts      # 同义词查询扩展
+│   ├── queryAdapter.ts       # 引擎查询语法适配
 │   ├── fetcher.ts            # 网页抓取 (Readability)
 │   ├── searchContext.ts      # 搜索结果会话管理
-│   ├── session.ts            # Cookie 会话管理
 │   └── engines/
 │       ├── bing.ts           # 必应
-│       ├── sogou.ts          # 搜狗
 │       ├── baidu.ts          # 百度
+│       ├── 360.ts            # 360 搜索
+│       ├── sogou.ts          # 搜狗
 │       ├── duckduckgo.ts     # DuckDuckGo
 │       ├── brave.ts          # Brave Search
 │       ├── github.ts         # GitHub
