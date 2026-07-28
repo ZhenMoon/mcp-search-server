@@ -1,16 +1,40 @@
-/**
- * Shared session state across engine instances and searches.
- * Keeps cookies warm so engines don't need to re-authenticate every search.
- */
+import { readFile, writeFile, mkdir } from 'fs/promises'
+import { existsSync } from 'fs'
 
 interface CookieEntry {
   value: string
   expiresAt: number
 }
 
-const TTL = 10 * 60 * 1000 // 10 minutes
+const TTL = 30 * 60 * 1000
+const DUMP_PATH = '.opencode/cookies.json'
 
 const cookies = new Map<string, CookieEntry>()
+let loaded = false
+
+async function loadDump(): Promise<void> {
+  if (loaded) return
+  loaded = true
+  try {
+    if (!existsSync(DUMP_PATH)) return
+    const raw = await readFile(DUMP_PATH, 'utf-8')
+    const data = JSON.parse(raw) as Record<string, [string, number]>
+    for (const [domain, [value, expiresAt]] of Object.entries(data)) {
+      if (Date.now() < expiresAt) cookies.set(domain, { value, expiresAt })
+    }
+  } catch { }
+}
+
+async function dumpCookies(): Promise<void> {
+  try {
+    const obj: Record<string, [string, number]> = {}
+    for (const [domain, entry] of cookies) {
+      if (Date.now() < entry.expiresAt) obj[domain] = [entry.value, entry.expiresAt]
+    }
+    if (!existsSync('.opencode')) await mkdir('.opencode', { recursive: true })
+    await writeFile(DUMP_PATH, JSON.stringify(obj))
+  } catch { }
+}
 
 export function getCookie(domain: string): string | null {
   const entry = cookies.get(domain)
@@ -24,26 +48,13 @@ export function getCookie(domain: string): string | null {
 
 export function setCookie(domain: string, value: string): void {
   cookies.set(domain, { value, expiresAt: Date.now() + TTL })
+  dumpCookies()
 }
 
 export function clearCookies(domain?: string): void {
   if (domain) cookies.delete(domain)
   else cookies.clear()
-}
-
-/**
- * Extract cookies from a Set-Cookie header string.
- * Returns a semicolon-joined cookie string suitable for Cookie header.
- */
-export function parseSetCookie(header: string): string {
-  const pairs: string[] = []
-  // split on comma only when followed by a known cookie name char
-  const parts = header.split(/,(?=\s*[a-zA-Z])/)
-  for (const part of parts) {
-    const pair = part.split(';')[0]?.trim()
-    if (pair && pair.includes('=')) pairs.push(pair)
-  }
-  return pairs.join('; ')
+  dumpCookies()
 }
 
 export async function warmUp(
@@ -52,15 +63,18 @@ export async function warmUp(
   headers: Record<string, string>,
   signal?: AbortSignal,
 ): Promise<void> {
+  await loadDump()
   if (getCookie(domain)) return
   try {
     const res = await fetch(url, { headers, signal, redirect: 'manual' })
-    const raw = res.headers.get('set-cookie')
-    if (raw) {
-      const parsed = parseSetCookie(raw)
-      if (parsed) setCookie(domain, parsed)
+    const allCookies = res.headers.getSetCookie()
+    if (allCookies.length > 0) {
+      const pairs: string[] = []
+      for (const raw of allCookies) {
+        const pair = raw.split(';')[0]?.trim()
+        if (pair && pair.includes('=')) pairs.push(pair)
+      }
+      if (pairs.length > 0) setCookie(domain, pairs.join('; '))
     }
-  } catch {
-    // non-fatal
-  }
+  } catch { }
 }

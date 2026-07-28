@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio'
 import type { SearchResult, SearchEngine } from '../types.js'
-import { getCookie, setCookie, clearCookies, parseSetCookie, warmUp } from '../session.js'
+import { getCookie, setCookie, clearCookies, warmUp } from '../session.js'
 import { pickHeaders, isBlocked } from '../scraper.js'
 
 const DOMAIN = 'baidu.com'
