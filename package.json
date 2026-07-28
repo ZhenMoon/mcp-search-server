@@ -1,7 +1,7 @@
 {
   "name": "mcp-search-server",
   "version": "1.0.0",
-  "description": "本地 MCP 网络搜索服务器 - 多引擎聚合、自动去重、无用信息过滤",
+  "description": "多引擎聚合搜索 MCP 服务器 - 8 引擎并行，去重排序、正文提取、深度研究",
   "type": "module",
   "bin": {
     "mcp-search": "./build/index.js"
