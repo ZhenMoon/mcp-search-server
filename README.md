@@ -195,6 +195,8 @@ mcp-search-server/
 │   ├── cache.ts              # 磁盘缓存 (TTL 5min)
 │   ├── circuitBreaker.ts     # 引擎熔断保护
 │   ├── filter.ts             # 无用信息过滤
+├── queryExpander.ts      # 同义词查询扩展
+├── queryAdapter.ts       # 引擎查询语法适配
 │   ├── queryExpander.ts      # 同义词查询扩展
 │   ├── queryAdapter.ts       # 引擎查询语法适配
 │   ├── fetcher.ts            # 网页抓取 (Readability)

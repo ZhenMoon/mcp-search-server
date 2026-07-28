@@ -17,6 +17,7 @@
     "cheerio": "^1.0.0",
     "jsdom": "^30.0.0"
   },
+  "license": "MIT",
   "devDependencies": {
     "@types/jsdom": "^28.0.3",
     "@types/node": "^20.17.10",
