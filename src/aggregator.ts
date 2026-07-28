@@ -8,6 +8,7 @@ import { GitHubEngine } from './engines/github.js'
 import { ZhihuEngine } from './engines/zhihu.js'
 import { deduplicate } from './dedup.js'
 import { trimResults } from './filter.js'
+import { adaptQuery, getQueryInfo } from './queryAdapter.js'
 
 const ENGINES: Record<string, SearchEngine> = {
   duckduckgo: new DuckDuckGoEngine(),
@@ -22,6 +23,18 @@ const ENGINES: Record<string, SearchEngine> = {
 const DEFAULT_TIMEOUT = 15000
 const MIN_PER_ENGINE = 15
 
+export interface EngineReport {
+  engine: string
+  status: 'ok' | 'error' | 'empty' | 'skipped'
+  count: number
+  error?: string
+}
+
+export interface AggregateResult {
+  results: SearchResult[]
+  reports: EngineReport[]
+}
+
 function splitTerms(s: string): string[] {
   const cleaned = s.toLowerCase().replace(/[^\w\u4e00-\u9fff\s]/g, ' ').trim()
   if (!cleaned) return []
@@ -29,13 +42,13 @@ function splitTerms(s: string): string[] {
 }
 
 function termMatches(text: string, term: string): boolean {
-  const lower = text.toLowerCase()
-  return lower.includes(term)
+  return text.toLowerCase().includes(term)
 }
 
 function scoreRelevance(query: string, result: SearchResult): number {
-  const queryTerms = splitTerms(query)
-  if (queryTerms.length === 0) return 0.5
+  const info = getQueryInfo(query)
+  const allTerms = [...info.terms, ...info.phrases]
+  if (allTerms.length === 0) return 0.5
 
   const title = result.title
   const desc = result.description
@@ -45,7 +58,7 @@ function scoreRelevance(query: string, result: SearchResult): number {
   let descHits = 0
   let urlHits = 0
 
-  for (const qt of queryTerms) {
+  for (const qt of allTerms) {
     if (termMatches(title, qt)) titleHits++
     if (termMatches(desc, qt)) descHits++
     if (termMatches(url, qt)) urlHits++
@@ -53,14 +66,46 @@ function scoreRelevance(query: string, result: SearchResult): number {
 
   if (titleHits === 0 && descHits === 0 && urlHits === 0) return 0
 
-  const titleScore = titleHits / queryTerms.length
-  const descScore = descHits / queryTerms.length
-  const urlScore = urlHits / queryTerms.length
+  const titleScore = titleHits / allTerms.length
+  const descScore = descHits / allTerms.length
+  const urlScore = urlHits / allTerms.length
 
   return titleScore * 0.55 + descScore * 0.3 + urlScore * 0.15
 }
 
+function deduplicateAcrossEngines(results: SearchResult[], maxResults: number): SearchResult[] {
+  const seen = new Map<string, SearchResult[]>()  // url -> results from different engines
+  const order: string[] = []
+
+  for (const r of results) {
+    const urlKey = r.url.split('?')[0].replace(/\/+$/, '').toLowerCase()
+    const existing = seen.get(urlKey)
+    if (existing) {
+      existing.push(r)
+    } else {
+      seen.set(urlKey, [r])
+      order.push(urlKey)
+    }
+  }
+
+  const out: SearchResult[] = []
+  for (const key of order) {
+    if (out.length >= maxResults) break
+    const group = seen.get(key)!
+    // prefer result with longer description (more informative)
+    group.sort((a, b) => b.description.length - a.description.length)
+    out.push(group[0])
+  }
+
+  return out
+}
+
 export async function aggregateSearch(options: SearchOptions): Promise<SearchResult[]> {
+  const { results } = await aggregateWithReport(options)
+  return results
+}
+
+export async function aggregateWithReport(options: SearchOptions): Promise<AggregateResult> {
   const {
     query,
     maxResults = 10,
@@ -72,7 +117,7 @@ export async function aggregateSearch(options: SearchOptions): Promise<SearchRes
     .filter(name => name in ENGINES)
     .map(name => ENGINES[name])
 
-  if (selectedEngines.length === 0) return []
+  if (selectedEngines.length === 0) return { results: [], reports: [] }
 
   const perEngine = Math.max(MIN_PER_ENGINE, Math.ceil(maxResults * 2.5 / selectedEngines.length))
 
@@ -82,22 +127,42 @@ export async function aggregateSearch(options: SearchOptions): Promise<SearchRes
     return { engine, controller, timer }
   })
 
-  const results = await Promise.allSettled(
-    enginesWithSignal.map(({ engine, controller }) =>
-      engine.search(query, perEngine, controller.signal).finally(() => {
+  const settled = await Promise.allSettled(
+    enginesWithSignal.map(({ engine, controller }) => {
+      const adaptedQuery = adaptQuery(query, engine.name)
+      return engine.search(adaptedQuery, perEngine, controller.signal).finally(() => {
         clearTimeout(enginesWithSignal.find(e => e.engine === engine)?.timer)
       })
-    )
+    })
   )
 
   for (const { timer } of enginesWithSignal) {
     clearTimeout(timer)
   }
 
+  const reports: EngineReport[] = []
   const all: SearchResult[] = []
-  for (const r of results) {
-    if (r.status === 'fulfilled') {
-      all.push(...r.value)
+
+  for (let i = 0; i < selectedEngines.length; i++) {
+    const engine = selectedEngines[i]
+    const result = settled[i]
+
+    if (result.status === 'fulfilled') {
+      const items = result.value
+      if (items.length === 0) {
+        reports.push({ engine: engine.name, status: 'empty', count: 0 })
+      } else {
+        reports.push({ engine: engine.name, status: 'ok', count: items.length })
+        all.push(...items)
+      }
+    } else {
+      const reason = result.reason
+      reports.push({
+        engine: engine.name,
+        status: 'error',
+        count: 0,
+        error: reason instanceof Error ? reason.message : String(reason),
+      })
     }
   }
 
@@ -110,7 +175,7 @@ export async function aggregateSearch(options: SearchOptions): Promise<SearchRes
   scored.sort((a, b) => b.score - a.score)
 
   const ranked = scored.map(x => x.result)
-  const deduped = deduplicate(ranked)
+  const deduped = deduplicateAcrossEngines(ranked, maxResults)
 
-  return deduped.slice(0, maxResults)
+  return { results: deduped.slice(0, maxResults), reports }
 }
