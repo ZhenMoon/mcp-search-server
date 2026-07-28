@@ -2,7 +2,7 @@ import type { SearchResult } from './types.js'
 
 const AD_KEYWORDS = [
   '广告', 'ad', 'sponsored', '推广', 'promoted',
-  'recommended', '推荐',
+  'recommended', '推荐', '智能分身', '视频大全',
 ]
 
 const NAV_KEYWORDS = [
@@ -16,6 +16,11 @@ const BAD_TITLE_PATTERNS = [
   /^\d{1,3}\s*(错误|error|warning|notice|page not found|404)/i,
   /^(just a moment|please wait|验证码|安全验证)/i,
   /^403|^404|^500|^502|^503/,
+  /视频大全/,
+  /智能分身/,
+  /免费阅读/,
+  /最新章节/,
+  /百度文库/,
 ]
 
 const TRACKING_DOMAINS = [
