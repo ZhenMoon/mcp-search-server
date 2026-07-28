@@ -191,13 +191,16 @@ mcp-search-server/
 │   ├── index.ts              # MCP server entry point
 │   ├── types.ts              # Type definitions
 │   ├── aggregator.ts         # Multi-engine aggregation, dedup, scoring
+│   ├── browser.ts            # Headless browser manager
 │   ├── cache.ts              # Disk cache (TTL 5min)
 │   ├── circuitBreaker.ts     # Engine circuit breaker
+│   ├── dedupContent.ts       # Page content deduplication
 │   ├── filter.ts             # Spam filtering
 │   ├── queryExpander.ts      # Synonym query expansion
 │   ├── queryAdapter.ts       # Engine-specific query adaptation
 │   ├── fetcher.ts            # Page fetching (Readability)
 │   ├── searchContext.ts      # Search session management
+│   ├── session.ts            # Cookie session management
 │   └── engines/
 │       ├── bing.ts           # Bing
 │       ├── baidu.ts          # Baidu

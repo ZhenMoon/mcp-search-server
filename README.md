@@ -192,15 +192,16 @@ mcp-search-server/
 │   ├── index.ts              # MCP 服务器入口
 │   ├── types.ts              # 类型定义
 │   ├── aggregator.ts         # 多引擎聚合 + 去重 + 排序
+│   ├── browser.ts            # 无头浏览器管理
 │   ├── cache.ts              # 磁盘缓存 (TTL 5min)
 │   ├── circuitBreaker.ts     # 引擎熔断保护
+│   ├── dedupContent.ts       # 网页正文去重
 │   ├── filter.ts             # 无用信息过滤
-├── queryExpander.ts      # 同义词查询扩展
-├── queryAdapter.ts       # 引擎查询语法适配
 │   ├── queryExpander.ts      # 同义词查询扩展
 │   ├── queryAdapter.ts       # 引擎查询语法适配
 │   ├── fetcher.ts            # 网页抓取 (Readability)
 │   ├── searchContext.ts      # 搜索结果会话管理
+│   ├── session.ts            # Cookie 会话管理
 │   └── engines/
 │       ├── bing.ts           # 必应
 │       ├── baidu.ts          # 百度
