@@ -7,7 +7,7 @@ import { BraveEngine } from './engines/brave.js'
 import { GitHubEngine } from './engines/github.js'
 import { ZhihuEngine } from './engines/zhihu.js'
 import { deduplicate } from './dedup.js'
-import { trimResults } from './filter.js'
+import { trimResults, isFreshnessQuery, isStaticPage } from './filter.js'
 import { adaptQuery, getQueryInfo } from './queryAdapter.js'
 import { semanticDeduplicate, rerankResults } from './neural.js'
 import { getCached, setCache } from './cache.js'
@@ -43,7 +43,7 @@ function termMatches(text: string, term: string): boolean {
   return text.toLowerCase().includes(term)
 }
 
-function scoreRelevance(query: string, result: SearchResult): number {
+function scoreRelevance(query: string, result: SearchResult, preferFresh = false): number {
   const info = getQueryInfo(query)
   const allTerms = [...info.terms, ...info.phrases]
   if (allTerms.length === 0) return 0.5
@@ -68,7 +68,14 @@ function scoreRelevance(query: string, result: SearchResult): number {
   const descScore = descHits / allTerms.length
   const urlScore = urlHits / allTerms.length
 
-  return titleScore * 0.55 + descScore * 0.3 + urlScore * 0.15
+  let score = titleScore * 0.55 + descScore * 0.3 + urlScore * 0.15
+
+  // freshness: deprioritize static pages for news queries
+  if (preferFresh && isStaticPage(result.url)) {
+    score *= 0.3
+  }
+
+  return score
 }
 
 function deduplicateAcrossEngines(results: SearchResult[], maxResults: number): SearchResult[] {
@@ -247,20 +254,29 @@ export async function aggregateWithReport(options: SearchOptions): Promise<Aggre
 
   const trimmed = trimResults(results)
 
+  const preferFresh = isFreshnessQuery(query)
+
   const scored = trimmed
-    .map(r => ({ result: r, score: scoreRelevance(query, r) }))
+    .map(r => ({ result: r, score: scoreRelevance(query, r, preferFresh) }))
     .filter(x => x.score > 0)
 
   scored.sort((a, b) => b.score - a.score)
 
   let ranked = scored.map(x => x.result)
 
+  // floor: always keep at least maxResults items even if relevance score is low
+  if (ranked.length < maxResults && all.length > ranked.length) {
+    const scoredSet = new Set(ranked.map(r => r.url))
+    const extras = all.filter(r => !scoredSet.has(r.url)).slice(0, maxResults - ranked.length)
+    ranked.push(...extras)
+  }
+
   if (ranked.length === 0 && all.length > 0) {
     const coreTerms = query.replace(/[^\w\u4e00-\u9fff\s]/g, ' ').split(/\s+/).filter(t => t.length > 1)
     if (coreTerms.length > 1) {
       const simplified = coreTerms.slice(0, 2).join(' ')
       const fallbackScored = trimmed
-        .map(r => ({ result: r, score: scoreRelevance(simplified, r) }))
+        .map(r => ({ result: r, score: scoreRelevance(simplified, r, preferFresh) }))
         .filter(x => x.score > 0)
       fallbackScored.sort((a, b) => b.score - a.score)
       ranked = fallbackScored.map(x => x.result)

@@ -4,8 +4,8 @@ interface BreakerState {
 }
 
 const state = new Map<string, BreakerState>()
-const MAX_FAILURES = 3
-const COOLDOWN_MS = 5 * 60 * 1000
+const MAX_FAILURES = 5
+const COOLDOWN_MS = 60 * 1000
 
 export function isEngineAvailable(name: string): boolean {
   const s = state.get(name)
@@ -27,8 +27,8 @@ export function recordFailure(name: string): void {
 
 export function recordSuccess(name: string): void {
   const s = state.get(name)
-  if (s && s.failures > 0) {
-    s.failures = Math.max(0, s.failures - 1)
+  if (s) {
+    s.failures = 0  // full reset on success
   }
 }
 

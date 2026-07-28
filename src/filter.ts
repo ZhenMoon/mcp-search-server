@@ -32,8 +32,28 @@ const TRACKING_DOMAINS = [
   'google-analytics.com', 'facebook.com/tr', 'amazon-adsystem.com',
 ]
 
-const SHORT_DESC_THRESHOLD = 15
-const MAX_RESULTS_PER_ENGINE = 20
+const STATIC_PATTERNS = [
+  /baike\.baidu\.com/i,
+  /zh\.wikipedia\.org/i,
+  /encyclopedia/i,
+  /词典/i,
+  /辞海/i,
+  /百科/i,
+]
+
+const NEWS_KEYWORDS = ['新闻', '最新', '今天', '报道', '快讯', '实时', '更新', '突发', '直播', '时讯']
+
+const SHORT_DESC_THRESHOLD = 5
+const MAX_RESULTS_PER_ENGINE = 30
+
+export function isFreshnessQuery(query: string): boolean {
+  const lower = query.toLowerCase()
+  return NEWS_KEYWORDS.some(k => lower.includes(k))
+}
+
+export function isStaticPage(url: string): boolean {
+  return STATIC_PATTERNS.some(p => p.test(url))
+}
 
 export function isLowQuality(result: SearchResult): boolean {
   const title = result.title.trim()
