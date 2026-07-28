@@ -6,6 +6,7 @@ import { BaiduEngine } from './engines/baidu.js'
 import { BraveEngine } from './engines/brave.js'
 import { GitHubEngine } from './engines/github.js'
 import { ZhihuEngine } from './engines/zhihu.js'
+import { So360Engine } from './engines/360.js'
 import { deduplicate } from './dedup.js'
 import { trimResults, isFreshnessQuery, isStaticPage } from './filter.js'
 import { adaptQuery, getQueryInfo } from './queryAdapter.js'
@@ -21,6 +22,7 @@ const ENGINES: Record<string, SearchEngine> = {
   brave: new BraveEngine(),
   github: new GitHubEngine(),
   zhihu: new ZhihuEngine(),
+  '360': new So360Engine(),
 }
 
 const DEFAULT_TIMEOUT = 15000
@@ -77,35 +79,37 @@ function scoreRelevance(query: string, result: SearchResult, preferFresh = false
   return score
 }
 
-function deduplicateAcrossEngines(results: SearchResult[], maxResults: number): SearchResult[] {
+function deduplicateAcrossEngines(results: SearchResult[]): SearchResult[] {
   const seen = new Map<string, SearchResult[]>()
-  const order: string[] = []
 
   for (const r of results) {
-    const urlKey = r.url.split('?')[0].replace(/\/+$/, '').toLowerCase()
-    const existing = seen.get(urlKey)
+    const key = dedupKey(r.url)
+    const existing = seen.get(key)
     if (existing) {
       existing.push(r)
     } else {
-      seen.set(urlKey, [r])
-      order.push(urlKey)
+      seen.set(key, [r])
     }
   }
 
   const out: SearchResult[] = []
-  const engineCount = new Map<string, number>()
-
-  for (const key of order) {
-    if (out.length >= maxResults) break
-    const group = seen.get(key)!
-    // prefer result with longer description
+  for (const group of seen.values()) {
     group.sort((a, b) => b.description.length - a.description.length)
     const chosen = group[0]
     out.push(chosen)
-    engineCount.set(chosen.engine, (engineCount.get(chosen.engine) || 0) + 1)
   }
 
   return out
+}
+
+function dedupKey(url: string): string {
+  const lower = url.toLowerCase()
+  // For redirect-based engines (baidu, 360, sogou), use the full URL including params
+  // because the query params encode the actual destination
+  if (/\.(baidu|so)\.com\/link/.test(lower)) return lower
+  if (/sogou\.com/.test(lower) && lower.includes('url=')) return lower
+  // For other URLs, strip query params to catch duplicates like utm_* tracking
+  return lower.split('?')[0].replace(/\/+$/, '')
 }
 
 function diversifyResults(results: SearchResult[], maxResults: number): SearchResult[] {
@@ -162,7 +166,7 @@ export async function aggregateWithReport(options: SearchOptions): Promise<Aggre
   const {
     query,
     maxResults = 10,
-    engines: engineNames = ['bing', 'sogou', 'baidu', 'github', 'zhihu'],
+    engines: engineNames = ['bing', 'baidu', '360', 'github', 'zhihu'],
     timeout = DEFAULT_TIMEOUT,
   } = options
 
@@ -284,7 +288,7 @@ export async function aggregateWithReport(options: SearchOptions): Promise<Aggre
     }
   }
 
-  let deduped = deduplicateAcrossEngines(ranked, maxResults)
+  let deduped = deduplicateAcrossEngines(ranked)
 
   deduped = diversifyResults(deduped, maxResults)
 

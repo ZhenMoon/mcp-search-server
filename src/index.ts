@@ -8,7 +8,7 @@ import { fetchPage } from './fetcher.js'
 import { adaptQuery, getQueryInfo } from './queryAdapter.js'
 import { saveResults, refineResults, SEARCH_PROFILES } from './searchContext.js'
 
-const ALL_ENGINES = ['duckduckgo', 'bing', 'sogou', 'baidu', 'brave', 'github', 'zhihu'] as const
+const ALL_ENGINES = ['duckduckgo', 'bing', 'sogou', 'baidu', 'brave', 'github', 'zhihu', '360'] as const
 
 type Engine = typeof ALL_ENGINES[number]
 
@@ -25,13 +25,13 @@ function defaultEngines(): Engine[] {
     const set = new Set(disabled.split(',').map(s => s.trim()))
     return ALL_ENGINES.filter(e => !set.has(e))
   }
-  return [...ALL_ENGINES]
+  return ['bing', 'baidu', '360', 'github', 'zhihu']
 }
 
 const server = new McpServer({
   name: 'mcp-search-server',
   version: '1.0.0',
-  description: '多引擎聚合搜索 MCP 服务器 - 支持 7 个引擎，自动去重、无用过滤、关联性排序、网页正文提取',
+  description: '多引擎聚合搜索 MCP 服务器 - 支持 8 个引擎，自动去重、无用过滤、关联性排序、网页正文提取',
 })
 
 server.tool(

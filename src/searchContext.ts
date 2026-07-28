@@ -79,8 +79,8 @@ export function refineResults(sessionId: string, opts: {
 export const SEARCH_PROFILES: Record<string, { label: string; engines: string[]; description: string }> = {
   general: {
     label: '综合',
-    engines: ['bing', 'sogou', 'baidu', 'github', 'zhihu'],
-    description: '默认 5 引擎',
+    engines: ['bing', 'baidu', '360', 'github', 'zhihu'],
+    description: 'Bing + 百度 + 360 + GitHub + 知乎',
   },
   tech: {
     label: '技术',
@@ -104,7 +104,7 @@ export const SEARCH_PROFILES: Record<string, { label: string; engines: string[];
   },
   deep: {
     label: '深度',
-    engines: ['bing', 'baidu', 'sogou', 'zhihu', 'github'],
+    engines: ['bing', 'baidu', 'sogou', '360', 'zhihu', 'github', 'duckduckgo'],
     description: '全部可用引擎',
   },
 }
