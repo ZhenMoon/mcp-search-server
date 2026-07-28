@@ -1,7 +1,7 @@
 {
   "name": "mcp-search-server",
   "version": "1.0.0",
-  "description": "多引擎聚合搜索 MCP 服务器 - 8 引擎并行，去重排序、正文提取、深度研究。可选无头浏览器 (HEADLESS_BROWSER=true)",
+  "description": "多引擎聚合搜索 MCP 服务器 — 7 引擎并行 + AI 语义去重/重排序 + 网页正文提取 + 深度研究。A multi-engine MCP search server with 7 engines, AI dedup/rerank, page fetch, and deep research.",
   "type": "module",
   "bin": {
     "mcp-search": "./build/index.js"

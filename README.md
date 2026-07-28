@@ -4,7 +4,7 @@
 
 <div align="center">
 
-多引擎聚合搜索 MCP 服务器 — **8 引擎并行** + **网页正文提取** + **深度研究** + **可选无头浏览器**。
+多引擎聚合搜索 MCP 服务器 — **7 引擎并行** + **AI 语义去重/重排序** + **网页正文提取** + **深度研究**。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
