@@ -46,6 +46,7 @@
 - **MCP 协议** — 标准 stdio 传输，Cursor/Claude Desktop 即插即用
 - **隐私安全** — 全部本地运行，搜索记录不经过任何第三方服务器
 - **零 API 费用** — 直接调用免费搜索引擎，无需付费 API
+- **反爬策略** — UA 轮换、请求头随机化、分页随机延迟、通用验证检测
 - **无头浏览器** — 设置 `HEADLESS_BROWSER=true` 启用 Puppeteer，知乎直连搜索，绕过 403 限制
 - **可配置** — 通过环境变量自由组合引擎
 
@@ -205,6 +206,7 @@ mcp-search-server/
 │   ├── queryExpander.ts      # 同义词查询扩展
 │   ├── queryAdapter.ts       # 引擎查询语法适配
 │   ├── fetcher.ts            # 网页抓取 (Readability)
+│   ├── scraper.ts            # 反爬共享工具
 │   ├── searchContext.ts      # 搜索结果会话管理
 │   ├── session.ts            # Cookie 会话管理
 │   └── engines/

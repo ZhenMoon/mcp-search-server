@@ -46,6 +46,7 @@ Compatible with **Cursor** · **Claude Desktop** · **Continue.dev** · **Windsu
 - **MCP Protocol** — Standard stdio transport, works with Cursor/Claude Desktop out of the box
 - **Privacy-first** — Fully local, search history never leaves your machine
 - **Zero API Cost** — Uses free search engines directly, no paid API required
+- **Anti-scraping** — UA rotation, randomized headers, pagination jitter, universal challenge detection
 - **Headless Browser** — Set `HEADLESS_BROWSER=true` to enable Puppeteer; Zhihu engine uses direct search, bypassing 403 restrictions
 - **Configurable** — Choose which engines to enable via environment variables
 
@@ -205,6 +206,7 @@ mcp-search-server/
 │   ├── queryExpander.ts      # Synonym query expansion
 │   ├── queryAdapter.ts       # Engine-specific query adaptation
 │   ├── fetcher.ts            # Page fetching (Readability)
+│   ├── scraper.ts            # Anti-scraping utilities
 │   ├── searchContext.ts      # Search session management
 │   ├── session.ts            # Cookie session management
 │   └── engines/
