@@ -1,9 +1,9 @@
 import * as cheerio from 'cheerio'
 import type { SearchResult, SearchEngine } from '../types.js'
+import { pickHeaders, isBlocked } from '../scraper.js'
 
 const API_URL = 'https://api.search.brave.com/res/v1/web/search'
 const HTML_URL = 'https://search.brave.com/search'
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
 
 export class BraveEngine implements SearchEngine {
   readonly name = 'brave'
@@ -68,15 +68,13 @@ async function tryScrape(query: string, maxResults: number, signal?: AbortSignal
       url.searchParams.set('offset', String(offset))
 
       const res = await fetch(url.toString(), {
-        headers: {
-          'User-Agent': USER_AGENT,
-          Accept: 'text/html',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
+        headers: pickHeaders(),
         signal,
       })
 
       const html = await res.text()
+      if (isBlocked(html)) break
+
       const $ = cheerio.load(html)
       const items = $('#results .snippet')
 

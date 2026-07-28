@@ -1,8 +1,8 @@
 import * as cheerio from 'cheerio'
 import type { SearchResult, SearchEngine } from '../types.js'
+import { pickHeaders, isBlocked } from '../scraper.js'
 
 const DDG_HTML_URL = 'https://html.duckduckgo.com/html/'
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
 
 export class DuckDuckGoEngine implements SearchEngine {
   readonly name = 'duckduckgo'
@@ -22,15 +22,16 @@ export class DuckDuckGoEngine implements SearchEngine {
         const res = await fetch(DDG_HTML_URL, {
           method: 'POST',
           headers: {
+            ...pickHeaders(),
             'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': USER_AGENT,
-            Accept: 'text/html',
           },
           body: body.toString(),
           signal,
         })
 
         const html = await res.text()
+        if (isBlocked(html)) break
+
         const $ = cheerio.load(html)
         const items = $('div.result')
 

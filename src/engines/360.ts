@@ -1,7 +1,6 @@
 import * as cheerio from 'cheerio'
 import type { SearchResult, SearchEngine } from '../types.js'
-
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
+import { pickHeaders, isBlocked } from '../scraper.js'
 
 export class So360Engine implements SearchEngine {
   readonly name = '360'
@@ -19,18 +18,17 @@ export class So360Engine implements SearchEngine {
 
         const res = await fetch(url.toString(), {
           headers: {
-            'User-Agent': USER_AGENT,
-            'Accept-Language': 'zh-CN,zh;q=0.9',
-            Accept: 'text/html',
+            ...pickHeaders(),
             Referer: 'https://www.so.com/',
           },
           signal,
         })
 
         const html = await res.text()
+        if (isBlocked(html)) break
+
         const $ = cheerio.load(html)
         const items = $('.res-list')
-
         if (items.length === 0) break
 
         let count = 0

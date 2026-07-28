@@ -1,8 +1,8 @@
 import * as cheerio from 'cheerio'
 import type { SearchResult, SearchEngine } from '../types.js'
+import { pickHeaders, isBlocked } from '../scraper.js'
 
 const GITHUB_URL = 'https://github.com/search'
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
 
 export class GitHubEngine implements SearchEngine {
   readonly name = 'github'
@@ -19,15 +19,13 @@ export class GitHubEngine implements SearchEngine {
         url.searchParams.set('p', String(page))
 
         const res = await fetch(url.toString(), {
-          headers: {
-            'User-Agent': USER_AGENT,
-            Accept: 'text/html',
-            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-          },
+          headers: pickHeaders(),
           signal,
         })
 
         const html = await res.text()
+        if (isBlocked(html)) break
+
         const $ = cheerio.load(html)
         const items = $('[data-testid="results-list"] > div')
 

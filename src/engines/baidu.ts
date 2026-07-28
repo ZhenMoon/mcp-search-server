@@ -1,28 +1,18 @@
 import * as cheerio from 'cheerio'
 import type { SearchResult, SearchEngine } from '../types.js'
 import { getCookie, setCookie, clearCookies, parseSetCookie, warmUp } from '../session.js'
+import { pickHeaders, isBlocked } from '../scraper.js'
 
-const BASE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
 const DOMAIN = 'baidu.com'
 
 function buildHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const cookie = getCookie(DOMAIN)
+  const shared = pickHeaders()
   return {
-    'User-Agent': BASE_UA,
-    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-    'Accept-Encoding': 'gzip, deflate, br',
+    'User-Agent': shared['User-Agent'],
+    'Accept-Language': shared['Accept-Language'],
+    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Cache-Control': 'no-cache',
-    Pragma: 'no-cache',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'none',
-    'Sec-Fetch-User': '?1',
-    'Upgrade-Insecure-Requests': '1',
-    'sec-ch-ua': '"Chromium";v="136", "Not?A_Brand";v="24"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"',
-    Connection: 'keep-alive',
     ...(cookie ? { Cookie: cookie } : {}),
     ...extra,
   }
@@ -64,7 +54,8 @@ async function fetchBaiduSearch(query: string, pn: number, signal?: AbortSignal)
     }
 
     if (!html || html.length < 500) return null
-    if (isBaiduBlocked(html)) return null
+    if (isBlocked(html)) return null
+    if (html.includes('https://www.baidu.com/cache/setblock/')) return null
     return html
   } catch {
     return null

@@ -1,8 +1,8 @@
 import * as cheerio from 'cheerio'
 import type { SearchResult, SearchEngine } from '../types.js'
+import { pickHeaders, isBlocked, delayMs } from '../scraper.js'
 
 const BING_URL = 'https://www.bing.com/search'
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
 
 export class BingEngine implements SearchEngine {
   readonly name = 'bing'
@@ -19,16 +19,12 @@ export class BingEngine implements SearchEngine {
         url.searchParams.set('setlang', 'zh-CN')
 
         const res = await fetch(url.toString(), {
-          headers: {
-            'User-Agent': USER_AGENT,
-            Accept: 'text/html',
-            'Accept-Language': 'zh-CN,zh;q=0.9',
-          },
+          headers: pickHeaders(),
           signal,
         })
 
         const html = await res.text()
-        if (isBotBlocked(html)) break
+        if (isBlocked(html)) break
 
         const $ = cheerio.load(html)
         const items = $('#b_results .b_algo')
@@ -51,6 +47,7 @@ export class BingEngine implements SearchEngine {
 
         if (pageCount === 0) break
         page++
+        if (page < 3) await new Promise(r => setTimeout(r, delayMs()))
       }
     } catch (err) {
       if ((err as Error).name === 'AbortError') throw err
@@ -58,9 +55,4 @@ export class BingEngine implements SearchEngine {
 
     return results.slice(0, maxResults)
   }
-}
-
-function isBotBlocked(html: string): boolean {
-  const lower = html.toLowerCase()
-  return lower.includes('captcha') || lower.includes('verify you are human') || lower.includes('blocked')
 }

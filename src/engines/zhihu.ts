@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio'
 import type { SearchResult, SearchEngine } from '../types.js'
 import { getPage, isBrowserEnabled } from '../browser.js'
+import { pickHeaders, isBlocked } from '../scraper.js'
 
 export class ZhihuEngine implements SearchEngine {
   readonly name = 'zhihu'
@@ -66,16 +67,12 @@ async function tryBingSearch(query: string, maxResults: number, signal?: AbortSi
       url.searchParams.set('setlang', 'zh-CN')
 
       const res = await fetch(url.toString(), {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          Accept: 'text/html',
-          'Accept-Language': 'zh-CN,zh;q=0.9',
-        },
+        headers: pickHeaders(),
         signal,
       })
 
       const html = await res.text()
-      if (html.toLowerCase().includes('captcha') || html.includes('verify you are human')) break
+      if (isBlocked(html)) break
 
       const $ = cheerio.load(html)
       const items = $('#b_results .b_algo')
