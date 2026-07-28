@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "mcpSearch": {
+      "command": "node",
+      "args": ["C:\\Users\\bits\\mcp-search-server\\build\\index.js"],
+      "env": {
+        "NODE_TLS_REJECT_UNAUTHORIZED": "0",
+        "SEARCH_ENGINES": "bing,sogou,baidu,github,zhihu"
+      }
+    }
+  }
+}

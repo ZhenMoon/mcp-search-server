@@ -112,6 +112,24 @@ Add the following entry to your MCP client config (replace `<path>` with your ac
 | `maxResults` | `number` | `10` | Max results (1–50) |
 | `engines` | `string[]` | 5 engines | Search engines to use |
 | `timeout` | `number` | `15000` | Search timeout (ms) |
+| `profile` | `string` | — | Search profile: `general`/`tech`/`chinese`/`code`/`fast`/`deep` |
+
+Returns a `【Session ID】` for use with the `refine` tool.
+
+### `refine` — Refine search results
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `sessionId` | `string` | **required** | Session ID from `search` |
+| `engine` | `string` | — | Filter by engine (comma-separated) |
+| `keyword` | `string` | — | Filter by keyword |
+| `domain` | `string` | — | Filter by domain |
+| `offset` | `number` | `0` | Offset |
+| `limit` | `number` | `10` | Max items to return |
+
+### `search_profiles` — List available search profiles
+
+No parameters.
 
 ### `search_engines` — List available engines
 
@@ -139,6 +157,8 @@ mcp-search-server/
 │   ├── dedupContent.ts       # Page content deduplication
 │   ├── filter.ts             # Spam filtering
 │   ├── fetcher.ts            # Page fetching (Readability)
+│   ├── searchContext.ts      # Search session management
+│   ├── session.ts            # Cookie session management
 │   └── engines/
 │       ├── bing.ts           # Bing
 │       ├── sogou.ts          # Sogou

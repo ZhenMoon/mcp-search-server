@@ -117,6 +117,24 @@ SEARCH_DISABLED_ENGINES=duckduckgo,brave node build/index.js
 | `maxResults` | `number` | `10` | 最大返回结果数（1–50） |
 | `engines` | `string[]` | 默认 5 引擎 | 搜索引擎列表 |
 | `timeout` | `number` | `15000` | 搜索超时（毫秒） |
+| `profile` | `string` | — | 搜索场景：`general`/`tech`/`chinese`/`code`/`fast`/`deep` |
+
+返回结果包含 `【会话ID】`，可用于 `refine` 工具二次过滤。
+
+### `refine` — 精炼搜索结果
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `sessionId` | `string` | **必填** | `search` 返回的会话 ID |
+| `engine` | `string` | — | 按引擎过滤，逗号分隔 |
+| `keyword` | `string` | — | 关键词过滤 |
+| `domain` | `string` | — | 域名过滤 |
+| `offset` | `number` | `0` | 偏移量 |
+| `limit` | `number` | `10` | 返回数量 |
+
+### `search_profiles` — 列出可用搜索场景
+
+无参数。
 
 ### `search_engines` — 列出可用搜索引擎
 
@@ -144,6 +162,8 @@ mcp-search-server/
 │   ├── dedupContent.ts       # 网页正文去重
 │   ├── filter.ts             # 无用信息过滤
 │   ├── fetcher.ts            # 网页抓取 (Readability)
+│   ├── searchContext.ts      # 搜索结果会话管理
+│   ├── session.ts            # Cookie 会话管理
 │   └── engines/
 │       ├── bing.ts           # 必应
 │       ├── sogou.ts          # 搜狗
