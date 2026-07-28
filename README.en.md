@@ -1,19 +1,41 @@
 # MCP Search Server
 
-Multi-engine aggregated search MCP server with 7 search engines, automatic deduplication, spam filtering, and web page content extraction.
+[中文文档](./README.md) | English
 
-[中文文档](./README.md)
+<div align="center">
+
+Multi-engine aggregated search MCP server — **7 search engines** in parallel, deduplication, spam filtering, relevance ranking, and web page content extraction.
+
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
+
+Compatible with **Cursor** · **Claude Desktop** · **Continue.dev** · **Windsurf** · **Trae**
+
+</div>
+
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Search Engines](#search-engines)
+- [Quick Start](#quick-start)
+- [Client Configuration](#client-configuration)
+- [Environment Variables](#environment-variables)
+- [Available Tools](#available-tools)
+- [Project Structure](#project-structure)
+- [Usage Examples](#usage-examples)
 
 ---
 
 ## Features
 
-- **Multi-engine Parallel** — Simultaneously queries multiple search engines; `Promise.allSettled` ensures a single engine failure doesn't affect the overall result
-- **Automatic Deduplication** — URL normalization + Jaccard similarity on titles/descriptions
-- **Relevance Ranking** — Weighted scoring based on query term matches in titles, descriptions, and URLs
+- **Multi-engine Parallel** — Queries multiple engines simultaneously; `Promise.allSettled` ensures a single engine failure doesn't affect the overall result
+- **Automatic Deduplication** — URL normalization + Jaccard similarity on titles and descriptions
+- **Relevance Ranking** — Weighted scoring based on query term matches in titles, descriptions, and URLs; zero-match results are automatically filtered out
 - **Spam Filtering** — Removes ads, navigation keywords, tracking parameters/domains, short descriptions, and error pages
-- **Page Fetching** — Extracts readable content using Mozilla Readability; automatically removes duplicate paragraphs and copyright boilerplate
-- **MCP Protocol** — Standard stdio transport, compatible with Cursor, Claude Desktop, Continue.dev, and other MCP clients
+- **Page Fetching** — Extracts readable content using Mozilla Readability; automatically removes duplicate paragraphs, copyright notices, and tail recommendations
+- **MCP Protocol** — Standard stdio transport, works out of the box
 - **Configurable** — Choose which engines to enable via environment variables
 
 ---
@@ -30,11 +52,11 @@ Multi-engine aggregated search MCP server with 7 search engines, automatic dedup
 | `github` | Code | GitHub repository search |
 | `zhihu` | Content | Zhihu Q&A (via Bing `site:` search) |
 
+Default engines: `bing` `sogou` `baidu` `github` `zhihu`
+
 ---
 
 ## Quick Start
-
-### Install
 
 ```bash
 git clone https://github.com/ZhenMoon/mcp-search-server.git
@@ -43,47 +65,31 @@ npm install
 npm run build
 ```
 
-### Configure MCP Client
+---
 
-**Cursor** (`~/.cursor/mcp.json`):
+## Client Configuration
+
+Add the following entry to your MCP client config (replace `<path>` with your actual path):
+
 ```json
 {
   "mcpServers": {
     "mcp-search": {
       "command": "node",
-      "args": ["<absolute-path>/mcp-search-server/build/index.js"]
+      "args": ["<path>/mcp-search-server/build/index.js"]
     }
   }
 }
 ```
 
-**Claude Desktop** (`~/.claude/settings.json`):
-```json
-{
-  "mcpServers": {
-    "mcp-search": {
-      "command": "node",
-      "args": ["<absolute-path>/mcp-search-server/build/index.js"]
-    }
-  }
-}
-```
+**Config file locations:**
 
-**Continue.dev** (`~/.continue/config.json`):
-```json
-{
-  "experimental": {
-    "mcpServers": {
-      "mcp-search": {
-        "command": "node",
-        "args": ["<absolute-path>/mcp-search-server/build/index.js"]
-      }
-    }
-  }
-}
-```
-
-**Windsurf / Trae / Other MCP Clients** — Add the same `command`/`args` in your MCP configuration.
+| Client | Config Path |
+|--------|-------------|
+| Cursor | `~/.cursor/mcp.json` |
+| Claude Desktop | `~/.claude/settings.json` |
+| Continue.dev | `~/.continue/config.json` |
+| Windsurf / Trae | Add the same `command`/`args` to MCP settings |
 
 ---
 
@@ -94,34 +100,28 @@ npm run build
 | `SEARCH_ENGINES` | Comma-separated list of engines to enable | `bing,baidu,github` |
 | `SEARCH_DISABLED_ENGINES` | Comma-separated list of engines to disable | `duckduckgo,brave` |
 
-Default engines: `bing, sogou, baidu, github, zhihu` (5 engines).
-
 ---
 
 ## Available Tools
 
-### `search`
-
-Multi-engine aggregated search.
+### `search` — Multi-engine aggregated search
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `query` | `string` | required | Search keywords |
+| `query` | `string` | **required** | Search keywords |
 | `maxResults` | `number` | `10` | Max results (1–50) |
-| `engines` | `string[]` | see above | Search engines to use |
+| `engines` | `string[]` | 5 engines | Search engines to use |
 | `timeout` | `number` | `15000` | Search timeout (ms) |
 
-### `search_engines`
+### `search_engines` — List available engines
 
-List all available search engines.
+No parameters.
 
-### `fetch`
-
-Fetch and extract readable web page content.
+### `fetch` — Fetch and extract page content
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `url` | `string` | required | Page URL |
+| `url` | `string` | **required** | Page URL |
 | `timeout` | `number` | `15000` | Fetch timeout (ms) |
 | `maxLength` | `number` | `8000` | Max content length to return |
 
@@ -158,18 +158,15 @@ mcp-search-server/
 ## Usage Examples
 
 ```text
-# Search + fetch workflow
-search("Rust language tutorial", maxResults: 5)
-  → returns 5 results
-fetch(url: "https://doc.rust-lang.org/book/")
-  → fetches and returns page content
+Search + fetch workflow:
+  search("Rust language tutorial", maxResults: 5)
+  fetch("https://doc.rust-lang.org/book/")
 
-# Specify engines
-search(engines: ["bing", "github"], query: "nodejs cli tool")
-  → only uses Bing and GitHub
+Specify engines:
+  search(engines: ["bing", "github"], query: "nodejs cli tool")
 
-# Environment variable to select engines
-SEARCH_ENGINES=bing,github node build/index.js
+Environment variable:
+  SEARCH_ENGINES=bing,github node build/index.js
 ```
 
 ---
