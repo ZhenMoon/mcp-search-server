@@ -47,7 +47,7 @@ export function getBreakerStatus(): string[] {
     const remaining = blocked
       ? Math.max(0, Math.ceil((COOLDOWN_MS - (Date.now() - s.lastFailure)) / 1000))
       : 0
-    lines.push(`${name}: ${s.failures}/${MAX_FAILURES}${blocked ? ` ❄️${remaining}s` : ''}`)
+    lines.push(`${name}: ${s.failures}/${MAX_FAILURES}${blocked ? ` (冷却${remaining}s)` : ''}`)
   }
   return lines
 }
