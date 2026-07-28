@@ -1,21 +1,24 @@
 import * as cheerio from 'cheerio'
 import type { SearchResult, SearchEngine } from '../types.js'
-import { getPage } from '../browser.js'
+import { getPage, isBrowserEnabled } from '../browser.js'
 
 export class ZhihuEngine implements SearchEngine {
   readonly name = 'zhihu'
 
   async search(query: string, maxResults: number, signal?: AbortSignal): Promise<SearchResult[]> {
-    const results = await tryDirectSearch(query, maxResults, signal)
-    if (results.length > 0) return results
+    if (isBrowserEnabled()) {
+      const results = await tryDirectSearch(query, maxResults, signal)
+      if (results.length > 0) return results
+    }
     return tryBingSearch(query, maxResults, signal)
   }
 }
 
 async function tryDirectSearch(query: string, maxResults: number, signal?: AbortSignal): Promise<SearchResult[]> {
-  let page: Awaited<ReturnType<typeof getPage>> | undefined
+  let page: Awaited<ReturnType<typeof getPage>> | null = null
   try {
     page = await getPage()
+    if (!page) return []
 
     const url = `https://www.zhihu.com/search?type=content&q=${encodeURIComponent(query)}`
 

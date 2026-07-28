@@ -1,6 +1,7 @@
-import puppeteer, { type Browser, type Page } from 'puppeteer-core'
+import type { Browser, Page } from 'puppeteer-core'
 
 let browser: Browser | null = null
+let launching: Promise<Browser> | null = null
 
 const CHROME_PATHS = [
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -10,21 +11,34 @@ const CHROME_PATHS = [
 ]
 
 function findChrome(): string | undefined {
-  return CHROME_PATHS.find(p => {
-    try { return require('fs').existsSync(p) } catch { return false }
-  })
+  try {
+    const fs = require('fs') as typeof import('fs')
+    return CHROME_PATHS.find(p => fs.existsSync(p))
+  } catch {
+    return undefined
+  }
 }
 
-let launching: Promise<Browser> | null = null
+export function isBrowserEnabled(): boolean {
+  if (process.env.HEADLESS_BROWSER !== 'true' && process.env.HEADLESS_BROWSER !== '1') return false
+  return !!findChrome()
+}
 
-export async function getBrowser(): Promise<Browser> {
+async function lazyPuppeteer(): Promise<typeof import('puppeteer-core')> {
+  return import('puppeteer-core')
+}
+
+async function getBrowser(): Promise<Browser> {
   if (browser?.connected) return browser
   if (launching) return launching
 
   launching = (async () => {
     const exePath = process.env.CHROME_PATH || findChrome()
-    if (!exePath) throw new Error('Chrome/Edge not found. Set CHROME_PATH env var.')
+    if (!exePath) throw new Error(
+      'Chrome/Edge not found. Set HEADLESS_BROWSER=true and optionally CHROME_PATH for custom path.'
+    )
 
+    const puppeteer = await lazyPuppeteer()
     const b = await puppeteer.launch({
       executablePath: exePath,
       headless: true,
@@ -33,8 +47,6 @@ export async function getBrowser(): Promise<Browser> {
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
-        '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process',
         '--window-size=1280,800',
       ],
     })
@@ -46,14 +58,17 @@ export async function getBrowser(): Promise<Browser> {
   return launching
 }
 
-export async function getPage(): Promise<Page> {
-  const b = await getBrowser()
-  const page = await b.newPage()
-  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36')
-  await page.setExtraHTTPHeaders({
-    'Accept-Language': 'zh-CN,zh;q=0.9',
-  })
-  return page
+export async function getPage(): Promise<Page | null> {
+  if (!isBrowserEnabled()) return null
+  try {
+    const b = await getBrowser()
+    const page = await b.newPage()
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36')
+    await page.setExtraHTTPHeaders({ 'Accept-Language': 'zh-CN,zh;q=0.9' })
+    return page
+  } catch {
+    return null
+  }
 }
 
 export async function shutdownBrowser(): Promise<void> {

@@ -112,6 +112,9 @@ Add the following entry to your MCP client config (replace `<path>` with your ac
 |----------|-------------|---------|
 | `SEARCH_ENGINES` | Comma-separated list of engines to enable | `bing,baidu,360` |
 | `SEARCH_DISABLED_ENGINES` | Comma-separated list of engines to disable | `duckduckgo,brave,sogou` |
+| `HEADLESS_BROWSER` | Enable headless browser (requires Chrome/Edge) | `true` |
+
+When `HEADLESS_BROWSER=true`, the Zhihu engine uses Puppeteer for direct search (instead of Bing `site:`), yielding higher quality results.
 
 ```bash
 SEARCH_DISABLED_ENGINES=duckduckgo,brave,sogou node build/index.js

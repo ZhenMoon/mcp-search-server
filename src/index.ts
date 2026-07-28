@@ -31,7 +31,7 @@ function defaultEngines(): Engine[] {
 const server = new McpServer({
   name: 'mcp-search-server',
   version: '1.0.0',
-  description: '多引擎聚合搜索 MCP 服务器 - 8 引擎并行，去重排序、正文提取、深度研究，支持无头浏览器',
+  description: '多引擎聚合搜索 MCP 服务器 - 8 引擎并行，去重排序、正文提取、深度研究。设置 HEADLESS_BROWSER=true 启用无头浏览器',
 })
 
 server.tool(
