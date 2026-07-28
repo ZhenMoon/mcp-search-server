@@ -1,10 +1,22 @@
 import * as cheerio from 'cheerio'
 import type { SearchResult, SearchEngine } from '../types.js'
-import { pickHeaders, isBlocked, delayMs, adaptiveDelay } from '../scraper.js'
-
-const BING_URL = 'https://www.bing.com/search'
+import { pickHeaders, isBlocked, adaptiveDelay, isMobileEnabled, pickMobileHeaders } from '../scraper.js'
+import { fetchWithTLS } from '../tlsFingerprint.js'
 
 const BING_DOMAIN = 'bing.com'
+
+async function doFetch(url: string, headers: Record<string, string>, signal?: AbortSignal): Promise<string | null> {
+  if (Math.random() < 0.3 && process.env.TLS_FINGERPRINT !== 'false') {
+    try {
+      const r = await fetchWithTLS(url, { headers, signal, timeout: 10000 })
+      if (r.status < 400) return r.body
+    } catch { /* fall through */ }
+  }
+  try {
+    const res = await fetch(url, { headers, signal })
+    return await res.text()
+  } catch { return null }
+}
 
 export class BingEngine implements SearchEngine {
   readonly name = 'bing'
@@ -12,24 +24,27 @@ export class BingEngine implements SearchEngine {
   async search(query: string, maxResults: number, signal?: AbortSignal): Promise<SearchResult[]> {
     const results: SearchResult[] = []
     let page = 0
+    const useMobile = isMobileEnabled()
 
     try {
       while (results.length < maxResults) {
-        const url = new URL(BING_URL)
+        const baseUrl = useMobile ? 'https://m.bing.com/search' : 'https://www.bing.com/search'
+        const url = new URL(baseUrl)
         url.searchParams.set('q', query)
         url.searchParams.set('first', String(1 + page * 10))
         url.searchParams.set('setlang', 'zh-CN')
 
-        const res = await fetch(url.toString(), {
-          headers: pickHeaders(BING_DOMAIN),
-          signal,
-        })
+        const headers = useMobile
+          ? { ...pickMobileHeaders(), Referer: 'https://m.bing.com/' }
+          : pickHeaders(BING_DOMAIN)
 
-        const html = await res.text()
+        const html = await doFetch(url.toString(), headers, signal)
+        if (!html) break
         if (isBlocked(html)) break
 
         const $ = cheerio.load(html)
-        const items = $('#b_results .b_algo')
+        const selector = useMobile ? '.b_algo, .card-wide' : '#b_results .b_algo'
+        const items = $(selector)
 
         if (items.length === 0) break
 

@@ -75,10 +75,52 @@ const BLOCKED_PATTERNS = [
   /access\s*denied/i,
   /rate\s*limit/i,
   /too\s*many\s*requests/i,
+  /sorry,\s*your\s*request/i,
 ]
+
+const MOBILE_ENDPOINTS: Record<string, string> = {
+  baidu: 'https://m.baidu.com/s',
+  bing: 'https://m.bing.com/search',
+  sogou: 'https://m.sogou.com/web',
+  '360': 'https://m.so.com/s',
+}
 
 let profileIndex = 0
 const redirectCache = new Map<string, string>()
+
+export function isMobileEnabled(): boolean {
+  return process.env.MOBILE_ENDPOINT === 'true' || process.env.MOBILE_ENDPOINT === '1'
+}
+
+export function getMobileSearchUrl(engine: string, desktopUrl: string): string {
+  const base = MOBILE_ENDPOINTS[engine]
+  if (!base) return desktopUrl
+  const parsed = new URL(desktopUrl)
+  return base + parsed.search
+}
+
+export function pickMobileHeaders(): Record<string, string> {
+  profileIndex = (profileIndex + 1) % PROFILES.length
+  const p = PROFILES[profileIndex]
+
+  const ua = p.ua
+    .replace(/Windows NT 10\.0; Win64; x64/, 'Linux; Android 14; Mobile')
+    .replace(/Macintosh; Intel Mac OS X \d+_\d+_\d+/, 'Linux; Android 14; Mobile')
+    .replace(/X11; Linux x86_64/, 'Linux; Android 14; Mobile')
+
+  return {
+    'User-Agent': ua,
+    'Accept-Language': p.lang,
+    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Encoding': 'gzip, deflate',
+    'Cache-Control': 'no-cache',
+    Pragma: 'no-cache',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Upgrade-Insecure-Requests': '1',
+  }
+}
 
 export function pickHeaders(domain?: string): Record<string, string> {
   profileIndex = (profileIndex + 1) % PROFILES.length

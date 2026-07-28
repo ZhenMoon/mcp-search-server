@@ -1,9 +1,25 @@
 import * as cheerio from 'cheerio'
 import type { SearchResult, SearchEngine } from '../types.js'
 import { getCookie, setCookie, clearCookies, warmUp } from '../session.js'
-import { pickHeaders, isBlocked } from '../scraper.js'
+import { pickHeaders, isBlocked, isMobileEnabled, getMobileSearchUrl, pickMobileHeaders } from '../scraper.js'
+import { fetchWithTLS } from '../tlsFingerprint.js'
 
 const DOMAIN = 'baidu.com'
+
+async function doFetch(url: string, headers: Record<string, string>, signal?: AbortSignal): Promise<string | null> {
+  // randomly use TLS fingerprint rotation (30% of requests)
+  if (Math.random() < 0.3 && process.env.TLS_FINGERPRINT !== 'false') {
+    try {
+      const r = await fetchWithTLS(url, { headers, signal, timeout: 10000 })
+      if (r.status < 400) return r.body
+    } catch { /* fall through to normal fetch */ }
+  }
+
+  try {
+    const res = await fetch(url, { headers, signal })
+    return await res.text()
+  } catch { return null }
+}
 
 function buildHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const cookie = getCookie(DOMAIN)
@@ -31,38 +47,28 @@ function randomDelay(min = 200, max = 800): Promise<void> {
 }
 
 async function fetchBaiduSearch(query: string, pn: number, signal?: AbortSignal): Promise<string | null> {
-  const url = new URL('https://www.baidu.com/s')
+  const useMobile = isMobileEnabled()
+  const baseUrl = useMobile ? 'https://m.baidu.com/s' : 'https://www.baidu.com/s'
+  const url = new URL(baseUrl)
   url.searchParams.set('wd', query)
   url.searchParams.set('pn', pn.toString())
   url.searchParams.set('ie', 'utf-8')
-  url.searchParams.set('f', '8')
-  url.searchParams.set('rsv_bp', '1')
-  url.searchParams.set('rsv_idx', '1')
+  if (!useMobile) {
+    url.searchParams.set('f', '8')
+    url.searchParams.set('rsv_bp', '1')
+    url.searchParams.set('rsv_idx', '1')
+  }
 
   try {
-    const res = await fetch(url.toString(), {
-      headers: buildHeaders({ Referer: 'https://www.baidu.com/' }),
-      signal,
-      redirect: 'manual',
-    })
+    const headers = useMobile
+      ? { ...pickMobileHeaders(), ...(getCookie(DOMAIN) ? { Cookie: getCookie(DOMAIN)! } : {}), Referer: 'https://m.baidu.com/' }
+      : buildHeaders({ Referer: 'https://www.baidu.com/' })
 
-    let html = ''
-    if (res.status >= 300 && res.status < 400) {
-      const location = res.headers.get('location') || ''
-      if (location) {
-        const redirRes = await fetch(new URL(location, 'https://www.baidu.com').toString(), {
-          headers: buildHeaders({ Referer: 'https://www.baidu.com/' }),
-          signal,
-        })
-        html = await redirRes.text()
-      }
-    } else {
-      html = await res.text()
-    }
+    const html = await doFetch(url.toString(), headers, signal)
 
     if (!html || html.length < 500) return null
     if (isBlocked(html)) return null
-    if (html.includes('https://www.baidu.com/cache/setblock/')) return null
+    if (!useMobile && html.includes('https://www.baidu.com/cache/setblock/')) return null
     return html
   } catch {
     return null

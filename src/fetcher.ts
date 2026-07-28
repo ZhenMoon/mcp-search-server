@@ -2,6 +2,7 @@ import { JSDOM } from 'jsdom'
 import { Readability } from '@mozilla/readability'
 import { deduplicateContent } from './dedupContent.js'
 import { pickHeaders } from './scraper.js'
+import { fetchWithTLS } from './tlsFingerprint.js'
 
 const MAX_RETRIES = 2
 const RETRY_DELAY = 1000
@@ -19,6 +20,25 @@ async function fetchWithRetry(url: string, timeout: number, attempt: number): Pr
   const timer = setTimeout(() => controller.abort(), timeout)
   try {
     const origin = new URL(url).hostname
+
+    if (Math.random() < 0.3 && process.env.TLS_FINGERPRINT !== 'false') {
+      try {
+        const r = await fetchWithTLS(url, {
+          headers: pickHeaders(origin),
+          signal: controller.signal,
+          timeout,
+        })
+        if (r.status < 400) {
+          clearTimeout(timer)
+          return new Response(r.body, {
+            status: r.status,
+            statusText: r.statusText,
+            headers: r.headers,
+          })
+        }
+      } catch { /* fall through */ }
+    }
+
     const res = await fetch(url, {
       headers: pickHeaders(origin),
       signal: controller.signal,
