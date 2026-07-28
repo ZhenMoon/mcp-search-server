@@ -17,20 +17,12 @@ const ACCEPT_LANGUAGES = [
 ]
 
 const BLOCKED_PATTERNS = [
-  /captcha/i,
-  /verify\s*(you\s*are)?\s*human/i,
-  /blocked/i,
-  /antispider/i,
-  /access\s*denied/i,
   /请输入验证码/,
   /验证码/,
   /访问过于频繁/,
+  /antispider/i,
   /just\s*a\s*moment/i,
-  /challenge/i,
   /please\s*wait/i,
-  /页面加载中/,
-  /安全检查/,
-  /security\s*check/i,
 ]
 
 let uaIndex = 0
@@ -48,7 +40,11 @@ export function pickHeaders(): Record<string, string> {
 }
 
 export function isBlocked(html: string): boolean {
-  return BLOCKED_PATTERNS.some(p => p.test(html))
+  const lower = html.toLowerCase()
+  if (BLOCKED_PATTERNS.some(p => p.test(lower))) return true
+  // Short pages with challenge keywords are likely blocked
+  if (html.length < 8000 && (/captcha/.test(lower) || /challenge/.test(lower) || /verify/.test(lower) || /blocked/.test(lower) || /安全检查/.test(lower) || /安全验证/.test(lower))) return true
+  return false
 }
 
 export function delayMs(min = 300, max = 1200): number {

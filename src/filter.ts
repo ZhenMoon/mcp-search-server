@@ -44,7 +44,6 @@ const STATIC_PATTERNS = [
 const NEWS_KEYWORDS = ['新闻', '最新', '今天', '报道', '快讯', '实时', '更新', '突发', '直播', '时讯']
 
 const SHORT_DESC_THRESHOLD = 5
-const MAX_RESULTS_PER_ENGINE = 30
 
 export function isFreshnessQuery(query: string): boolean {
   const lower = query.toLowerCase()
@@ -89,7 +88,5 @@ export function isLowQuality(result: SearchResult): boolean {
 }
 
 export function trimResults(results: SearchResult[]): SearchResult[] {
-  return results
-    .filter(r => !isLowQuality(r))
-    .slice(0, MAX_RESULTS_PER_ENGINE)
+  return results.filter(r => !isLowQuality(r))
 }

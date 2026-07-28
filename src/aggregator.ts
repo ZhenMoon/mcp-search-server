@@ -264,27 +264,39 @@ export async function aggregateWithReport(options: SearchOptions): Promise<Aggre
     }
   }
 
-  // dedup by content title first (catches cross-engine same-page duplicates)
-  let deduped = deduplicateByContent(ranked)
-  // then dedup by URL (catches same-engine duplicate URLs)
-  deduped = deduplicateByUrl(deduped)
-
-  // engine-balance cap: at most ceil(maxResults / numEngines) per engine
-  // keeps score order while preventing one engine from dominating
-  const engines = new Set(deduped.map(r => r.engine))
-  const maxPerEngine = Math.max(1, Math.ceil(maxResults / Math.max(1, engines.size)))
-  const engineCount = new Map<string, number>()
-  const balanced: SearchResult[] = []
-  for (const r of deduped) {
-    const count = engineCount.get(r.engine) || 0
-    if (count >= maxPerEngine) continue
-    engineCount.set(r.engine, count + 1)
-    balanced.push(r)
-    if (balanced.length >= maxResults) break
+  // engine guarantee: 1 result per engine from the trimmed (pre-score) set,
+  // then fill remaining from scored+deduped results
+  const byEngine = new Map<string, SearchResult[]>()
+  for (const r of trimmed) {
+    const list = byEngine.get(r.engine) || []
+    list.push(r)
+    byEngine.set(r.engine, list)
   }
-  deduped = balanced
 
-  const final = deduped.slice(0, maxResults)
+  const guaranteed: SearchResult[] = []
+  const seenKeys = new Set<string>()
+  for (const [, items] of byEngine) {
+    const best = items[0]
+    if (!best) continue
+    const key = normalizeTitle(best.title)
+    if (seenKeys.has(key)) continue
+    seenKeys.add(key)
+    guaranteed.push(best)
+  }
+
+  // fill remaining slots from scored+deduped results
+  const pool = deduplicateByContent(ranked)
+  const finalPool = deduplicateByUrl(pool)
+
+  for (const r of finalPool) {
+    if (guaranteed.length >= maxResults) break
+    const key = normalizeTitle(r.title)
+    if (seenKeys.has(key)) continue
+    seenKeys.add(key)
+    guaranteed.push(r)
+  }
+
+  const final = guaranteed.slice(0, maxResults)
 
   // write cache
   setCache(query, engineNames as string[], false, { results: final, reports })
