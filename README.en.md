@@ -156,6 +156,41 @@ No parameters. Shows load status for embedding, reranker, and summarizer models.
 
 ---
 
+## Composite Tools
+
+### `search_and_fetch` — Search + fetch page content
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `query` | `string` | **required** | Search keywords |
+| `maxResults` | `number` | `5` | Max results |
+| `fetchCount` | `number` | `3` | Fetch top N pages |
+| `engines` | `string[]` | 5 engines | Search engines |
+| `timeout` | `number` | `15000` | Timeout (ms) |
+| `profile` | `string` | — | Search profile |
+| `useNeural` | `boolean` | `false` | Enable AI dedup+rerank |
+
+### `fetch_and_summarize` — Fetch + AI summarization
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `url` | `string` | **required** | Page URL |
+| `timeout` | `number` | `15000` | Fetch timeout (ms) |
+| `summaryMaxLength` | `number` | `150` | Max summary length |
+
+### `research` — Deep research (search → fetch → report)
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `query` | `string` | **required** | Research topic |
+| `maxResults` | `number` | `8` | Max results |
+| `fetchCount` | `number` | `3` | Deep-read top N |
+| `engines` | `string[]` | 5 engines | Search engines |
+| `timeout` | `number` | `20000` | Timeout (ms) |
+| `useNeural` | `boolean` | `false` | Enable AI dedup+rerank |
+
+---
+
 ## AI Models
 
 Models are downloaded from Hugging Face on first use (~1.2GB cache):

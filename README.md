@@ -161,6 +161,43 @@ SEARCH_DISABLED_ENGINES=duckduckgo,brave node build/index.js
 
 ---
 
+## 复合工具
+
+工具可组合使用，一步完成复杂工作流：
+
+### `search_and_fetch` — 搜索 + 抓取正文
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `query` | `string` | **必填** | 搜索关键词 |
+| `maxResults` | `number` | `5` | 搜索结果数 |
+| `fetchCount` | `number` | `3` | 抓取前 N 条正文 |
+| `engines` | `string[]` | 默认 5 引擎 | 搜索引擎列表 |
+| `timeout` | `number` | `15000` | 超时(毫秒) |
+| `profile` | `string` | — | 搜索场景 |
+| `useNeural` | `boolean` | `false` | 启用 AI 去重+重排序 |
+
+### `fetch_and_summarize` — 抓取 + AI 摘要
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `url` | `string` | **必填** | 网页 URL |
+| `timeout` | `number` | `15000` | 抓取超时(毫秒) |
+| `summaryMaxLength` | `number` | `150` | 摘要最大长度 |
+
+### `research` — 深度研究（搜索 → 抓取 → 综合报告）
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `query` | `string` | **必填** | 研究主题 |
+| `maxResults` | `number` | `8` | 搜索结果数 |
+| `fetchCount` | `number` | `3` | 深入阅读前 N 条 |
+| `engines` | `string[]` | 默认 5 引擎 | 搜索引擎列表 |
+| `timeout` | `number` | `20000` | 超时(毫秒) |
+| `useNeural` | `boolean` | `false` | 启用 AI 去重+重排序 |
+
+---
+
 ## AI 模型
 
 首次使用需从 Hugging Face 下载 ONNX 模型（约 1.2GB 缓存）：

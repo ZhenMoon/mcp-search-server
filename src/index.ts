@@ -225,6 +225,124 @@ server.tool(
 )
 
 server.tool(
+  'search_and_fetch',
+  {
+    query: z.string().describe('搜索关键词'),
+    maxResults: z.number().int().min(1).max(20).default(5).describe('搜索结果数'),
+    fetchCount: z.number().int().min(0).max(5).default(3).describe('抓取前 N 条正文'),
+    engines: z.array(z.enum(ALL_ENGINES)).default(defaultEngines()).describe('搜索引擎列表'),
+    timeout: z.number().int().min(3000).max(60000).default(15000).describe('超时(毫秒)'),
+    profile: z.string().optional().describe('搜索场景'),
+    useNeural: z.boolean().default(false).describe('启用 AI 去重+重排序'),
+  },
+  async ({ query, maxResults, fetchCount, engines, timeout, profile, useNeural }) => {
+    let activeEngines = engines
+    if (profile && SEARCH_PROFILES[profile]) {
+      activeEngines = SEARCH_PROFILES[profile].engines as typeof engines
+    }
+    const { results, reports } = await aggregateWithReport({ query, maxResults, engines: activeEngines, timeout, useNeural })
+    if (results.length === 0) {
+      return { content: [{ type: 'text', text: `未找到结果\n引擎状态: ${reports.map(r => `${r.engine}=${r.status}`).join(' ')}` }] }
+    }
+
+    const toFetch = results.slice(0, fetchCount)
+    const fetched = await Promise.allSettled(toFetch.map(r => fetchPage(r.url, timeout)))
+
+    const lines = [`【搜索结果】`]
+    results.forEach((r, i) => {
+      lines.push(`\n${i + 1}. ${r.title}`)
+      lines.push(`   URL: ${r.url}`)
+      lines.push(`   来源: ${r.engine}`)
+      if (i < fetchCount) {
+        const f = fetched[i]
+        if (f.status === 'fulfilled' && f.value.content) {
+          lines.push(`   正文: ${f.value.content.substring(0, 300)}...`)
+        } else {
+          lines.push(`   正文: (抓取失败)`)
+        }
+      }
+    })
+    return { content: [{ type: 'text', text: lines.join('\n') }] }
+  },
+)
+
+server.tool(
+  'fetch_and_summarize',
+  {
+    url: z.string().url().describe('网页 URL'),
+    timeout: z.number().int().min(3000).max(60000).default(15000).describe('抓取超时(毫秒)'),
+    summaryMaxLength: z.number().int().min(30).max(500).default(150).describe('摘要最大长度'),
+  },
+  async ({ url, timeout, summaryMaxLength }) => {
+    const page = await fetchPage(url, timeout)
+    if (!page.content) {
+      return { content: [{ type: 'text', text: '无法获取页面内容' }] }
+    }
+    const summary = await summarizeText(page.content, summaryMaxLength)
+    return {
+      content: [{
+        type: 'text',
+        text: `标题: ${page.title}\nURL: ${page.url}\n字数: ${page.length}\n\n【AI 摘要】\n${summary}\n\n【正文前 500 字】\n${page.content.substring(0, 500)}`,
+      }],
+    }
+  },
+)
+
+server.tool(
+  'research',
+  {
+    query: z.string().describe('研究主题'),
+    maxResults: z.number().int().min(3).max(20).default(8).describe('搜索结果数'),
+    fetchCount: z.number().int().min(1).max(5).default(3).describe('深入阅读前 N 条'),
+    engines: z.array(z.enum(ALL_ENGINES)).default(defaultEngines()).describe('搜索引擎列表'),
+    timeout: z.number().int().min(5000).max(60000).default(20000).describe('超时(毫秒)'),
+    useNeural: z.boolean().default(false).describe('启用 AI 去重+重排序'),
+  },
+  async ({ query, maxResults, fetchCount, engines, timeout, useNeural }) => {
+    const { results, reports } = await aggregateWithReport({ query, maxResults, engines, timeout, useNeural })
+    if (results.length === 0) {
+      return { content: [{ type: 'text', text: `未找到素材\n引擎状态: ${reports.map(r => `${r.engine}=${r.status}`).join(' ')}` }] }
+    }
+
+    const toFetch = results.slice(0, fetchCount)
+    const fetched = await Promise.allSettled(toFetch.map(r => fetchPage(r.url, timeout)))
+
+    const summaries: string[] = []
+    const detailLines: string[] = [`【深度研究报告】${query}`, `来源: ${results.length} 条结果 / ${fetchCount} 篇详细阅读`, '']
+
+    for (let i = 0; i < toFetch.length; i++) {
+      const r = toFetch[i]
+      const f = fetched[i]
+      detailLines.push(`--- 第 ${i + 1} 篇: ${r.title} ---`)
+      detailLines.push(`URL: ${r.url}`)
+      if (f.status === 'fulfilled' && f.value.content) {
+        const content = f.value.content
+        const s = content.length > 100
+          ? await summarizeText(content.substring(0, 2000), 200).catch(() => content.substring(0, 200))
+          : content.substring(0, 200)
+        summaries.push(`[${i + 1}] ${r.title}\n   ${s}`)
+        detailLines.push(`摘要: ${s}`)
+      } else {
+        detailLines.push('(抓取失败)')
+      }
+      detailLines.push('')
+    }
+
+    detailLines.push('', '【综合结论】', '')
+    if (summaries.length > 0) {
+      const combined = summaries.join('\n\n')
+      const conclusion = await summarizeText(combined, 300).catch(() => '无法生成综合结论')
+      detailLines.push(conclusion)
+    } else {
+      detailLines.push('未能获取足够素材生成综合结论')
+    }
+
+    detailLines.push('', `--- ${reports.filter(r => r.status === 'ok').map(r => `${r.engine} ${r.count}条`).join(' | ')} ---`)
+    return { content: [{ type: 'text', text: detailLines.join('\n') }] }
+  },
+)
+
+server.tool(
   'neural',
   {},
   async () => {
