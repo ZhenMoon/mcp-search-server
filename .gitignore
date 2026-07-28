@@ -3,3 +3,4 @@ build/
 *.js.map
 *.d.ts
 .env
+.opencode/

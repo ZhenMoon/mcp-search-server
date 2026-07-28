@@ -8,6 +8,7 @@ import { fetchPage } from './fetcher.js'
 import { adaptQuery, getQueryInfo } from './queryAdapter.js'
 import { saveResults, refineResults, SEARCH_PROFILES } from './searchContext.js'
 import { summarizeText, preloadAll, isEmbeddingLoaded, isRerankerLoaded, isSummarizerLoaded } from './neural.js'
+import { getBreakerStatus } from './circuitBreaker.js'
 
 const ALL_ENGINES = ['duckduckgo', 'bing', 'sogou', 'baidu', 'brave', 'github', 'zhihu'] as const
 
@@ -351,6 +352,9 @@ server.tool(
       `重排序 (BGE-Reranker-v2-m3): ${isRerankerLoaded() ? '✅ 已加载' : '❌ 未加载'}`,
       `摘要生成 (DistilBART-CNN): ${isSummarizerLoaded() ? '✅ 已加载' : '❌ 未加载'}`,
       '',
+      '--- 断电器状态 ---',
+      ...getBreakerStatus(),
+      '',
       '使用 search(query, useNeural: true) 激活 AI 语义去重 + 重排序',
       '使用 summarize(text) 生成 AI 摘要',
     ]
@@ -382,12 +386,32 @@ server.tool(
   },
 )
 
+function truncateAtSentence(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text
+  const cut = text.substring(0, maxLen)
+  const sentenceEnd = Math.max(
+    cut.lastIndexOf('。'),
+    cut.lastIndexOf('.'),
+    cut.lastIndexOf('！'),
+    cut.lastIndexOf('？'),
+    cut.lastIndexOf('\n'),
+  )
+  if (sentenceEnd > maxLen * 0.6) return text.substring(0, sentenceEnd + 1)
+  return cut + '...'
+}
+
+function highlightKeywords(text: string, query: string): string {
+  const terms = query.match(/[\w\u4e00-\u9fff]+/g)
+  if (!terms) return text
+  return text
+}
+
 function formatResults(results: Array<{ title: string; url: string; description: string; engine: string }>): string {
   return results
     .map((r, i) => {
       const lines = [`${i + 1}. ${r.title}`]
       lines.push(`   URL: ${r.url}`)
-      if (r.description) lines.push(`   摘要: ${r.description}`)
+      if (r.description) lines.push(`   摘要: ${truncateAtSentence(r.description, 150)}`)
       lines.push(`   来源: ${r.engine}`)
       return lines.join('\n')
     })

@@ -10,6 +10,9 @@ import { deduplicate } from './dedup.js'
 import { trimResults } from './filter.js'
 import { adaptQuery, getQueryInfo } from './queryAdapter.js'
 import { semanticDeduplicate, rerankResults } from './neural.js'
+import { getCached, setCache } from './cache.js'
+import { isEngineAvailable, recordFailure, recordSuccess } from './circuitBreaker.js'
+import { expandQuery } from './queryExpander.js'
 
 const ENGINES: Record<string, SearchEngine> = {
   duckduckgo: new DuckDuckGoEngine(),
@@ -34,12 +37,6 @@ export interface EngineReport {
 export interface AggregateResult {
   results: SearchResult[]
   reports: EngineReport[]
-}
-
-function splitTerms(s: string): string[] {
-  const cleaned = s.toLowerCase().replace(/[^\w\u4e00-\u9fff\s]/g, ' ').trim()
-  if (!cleaned) return []
-  return cleaned.split(/\s+/).filter(t => t.length > 0)
 }
 
 function termMatches(text: string, term: string): boolean {
@@ -75,7 +72,7 @@ function scoreRelevance(query: string, result: SearchResult): number {
 }
 
 function deduplicateAcrossEngines(results: SearchResult[], maxResults: number): SearchResult[] {
-  const seen = new Map<string, SearchResult[]>()  // url -> results from different engines
+  const seen = new Map<string, SearchResult[]>()
   const order: string[] = []
 
   for (const r of results) {
@@ -90,12 +87,61 @@ function deduplicateAcrossEngines(results: SearchResult[], maxResults: number): 
   }
 
   const out: SearchResult[] = []
+  const engineCount = new Map<string, number>()
+
   for (const key of order) {
     if (out.length >= maxResults) break
     const group = seen.get(key)!
-    // prefer result with longer description (more informative)
+    // prefer result with longer description
     group.sort((a, b) => b.description.length - a.description.length)
-    out.push(group[0])
+    const chosen = group[0]
+    out.push(chosen)
+    engineCount.set(chosen.engine, (engineCount.get(chosen.engine) || 0) + 1)
+  }
+
+  return out
+}
+
+function diversifyResults(results: SearchResult[], maxResults: number): SearchResult[] {
+  if (results.length <= maxResults) return results
+
+  const engineGroups = new Map<string, SearchResult[]>()
+  for (const r of results) {
+    const list = engineGroups.get(r.engine) || []
+    list.push(r)
+    engineGroups.set(r.engine, list)
+  }
+
+  const engines = [...engineGroups.keys()]
+  const totalEngines = engines.length
+  const minPerEngine = Math.max(1, Math.floor(maxResults / totalEngines))
+
+  const out: SearchResult[] = []
+  const used = new Set<string>()
+
+  // round-robin: take minPerEngine from each engine
+  for (let round = 0; round < minPerEngine; round++) {
+    for (const e of engines) {
+      const group = engineGroups.get(e)!
+      if (out.length >= maxResults) break
+      const r = group[round]
+      if (r && !used.has(r.url)) {
+        out.push(r)
+        used.add(r.url)
+      }
+    }
+    if (out.length >= maxResults) break
+  }
+
+  // fill remaining slots with best scored
+  if (out.length < maxResults) {
+    for (const r of results) {
+      if (out.length >= maxResults) break
+      if (!used.has(r.url)) {
+        out.push(r)
+        used.add(r.url)
+      }
+    }
   }
 
   return out
@@ -115,60 +161,91 @@ export async function aggregateWithReport(options: SearchOptions): Promise<Aggre
     useNeural = false,
   } = options
 
+  // cache check
+  const cached = await getCached(query, engineNames as string[], useNeural)
+  if (cached) {
+    return {
+      results: cached.results.slice(0, maxResults),
+      reports: cached.reports as EngineReport[],
+    }
+  }
+
   const selectedEngines = engineNames
     .filter(name => name in ENGINES)
-    .map(name => ENGINES[name])
+    .filter(name => isEngineAvailable(name))
+    .map(name => ({ name, engine: ENGINES[name] }))
 
   if (selectedEngines.length === 0) return { results: [], reports: [] }
 
   const perEngine = Math.max(MIN_PER_ENGINE, Math.ceil(maxResults * 2.5 / selectedEngines.length))
 
-  const enginesWithSignal = selectedEngines.map(engine => {
+  const enginesWithSignal = selectedEngines.map(({ name, engine }) => {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeout)
-    return { engine, controller, timer }
+    const timer = setTimeout(() => { controller.abort() }, timeout)
+    return { name, engine, controller, timer, signal: controller.signal }
   })
 
   const settled = await Promise.allSettled(
-    enginesWithSignal.map(({ engine, controller }) => {
-      const adaptedQuery = adaptQuery(query, engine.name)
-      return engine.search(adaptedQuery, perEngine, controller.signal).finally(() => {
-        clearTimeout(enginesWithSignal.find(e => e.engine === engine)?.timer)
+    enginesWithSignal.map(({ name, engine, signal, timer }) => {
+      const adaptedQuery = adaptQuery(query, name)
+      return engine.search(adaptedQuery, perEngine, signal).finally(() => {
+        clearTimeout(timer)
       })
     })
   )
-
-  for (const { timer } of enginesWithSignal) {
-    clearTimeout(timer)
-  }
 
   const reports: EngineReport[] = []
   const all: SearchResult[] = []
 
   for (let i = 0; i < selectedEngines.length; i++) {
-    const engine = selectedEngines[i]
+    const { name } = selectedEngines[i]
     const result = settled[i]
 
     if (result.status === 'fulfilled') {
       const items = result.value
       if (items.length === 0) {
-        reports.push({ engine: engine.name, status: 'empty', count: 0 })
+        reports.push({ engine: name, status: 'empty', count: 0 })
       } else {
-        reports.push({ engine: engine.name, status: 'ok', count: items.length })
+        reports.push({ engine: name, status: 'ok', count: items.length })
         all.push(...items)
+        recordSuccess(name)
       }
     } else {
       const reason = result.reason
       reports.push({
-        engine: engine.name,
+        engine: name,
         status: 'error',
         count: 0,
         error: reason instanceof Error ? reason.message : String(reason),
       })
+      recordFailure(name)
     }
   }
 
-  const trimmed = trimResults(all)
+  for (const { timer } of enginesWithSignal) {
+    clearTimeout(timer)
+  }
+
+  // query expansion fallback: if too few results, try expanded queries
+  let results = all
+  if (all.length < maxResults * 2 && all.length > 0) {
+    const expanded = expandQuery(query)
+    if (expanded.length > 1) {
+      for (const eq of expanded.slice(1)) {
+        if (results.length >= maxResults * 3) break
+        const adapted = adaptQuery(eq, selectedEngines[0]?.name || 'bing')
+        const fallbackEngine = ENGINES[selectedEngines[0]?.name || 'bing']
+        if (fallbackEngine) {
+          try {
+            const extra = await fallbackEngine.search(adapted, perEngine)
+            results.push(...extra)
+          } catch { /* skip */ }
+        }
+      }
+    }
+  }
+
+  const trimmed = trimResults(results)
 
   const scored = trimmed
     .map(r => ({ result: r, score: scoreRelevance(query, r) }))
@@ -178,7 +255,6 @@ export async function aggregateWithReport(options: SearchOptions): Promise<Aggre
 
   let ranked = scored.map(x => x.result)
 
-  // Fallback: if relevance filtering removed everything, try with simplified query
   if (ranked.length === 0 && all.length > 0) {
     const coreTerms = query.replace(/[^\w\u4e00-\u9fff\s]/g, ' ').split(/\s+/).filter(t => t.length > 1)
     if (coreTerms.length > 1) {
@@ -189,7 +265,6 @@ export async function aggregateWithReport(options: SearchOptions): Promise<Aggre
       fallbackScored.sort((a, b) => b.score - a.score)
       ranked = fallbackScored.map(x => x.result)
     }
-    // Second fallback: include top results anyway with a warning marker
     if (ranked.length === 0 && all.length > 0) {
       ranked = all.slice(0, maxResults)
     }
@@ -202,5 +277,14 @@ export async function aggregateWithReport(options: SearchOptions): Promise<Aggre
     deduped = await rerankResults(query, deduped)
   }
 
-  return { results: deduped.slice(0, maxResults), reports }
+  deduped = diversifyResults(deduped, maxResults)
+
+  const final = deduped.slice(0, maxResults)
+
+  // write cache
+  setCache(query, engineNames as string[], useNeural, { results: final, reports })
+
+  return { results: final, reports }
 }
+
+
