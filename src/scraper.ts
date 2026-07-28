@@ -179,14 +179,43 @@ export function delayMs(min = 300, max = 1200): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
+// Box-Muller transform for normal distribution
+function gaussRandom(mean: number, stddev: number): number {
+  let u = 0, v = 0
+  while (u === 0) u = Math.random()
+  while (v === 0) v = Math.random()
+  const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v)
+  return Math.round(mean + z * stddev)
+}
+
+export function normalDelayMs(mean = 800, stddev = 300, min = 100, max = 3000): number {
+  let d = gaussRandom(mean, stddev)
+  d = Math.max(min, Math.min(max, d))
+  return d
+}
+
+export function isDelayNormal(): boolean {
+  return process.env.DELAY_MODE === 'normal'
+}
+
 export async function adaptiveDelay(domain: string, baseMin = 400, baseMax = 1500): Promise<void> {
   try {
     const { getRateLimit } = require('./config.js')
     const limit = getRateLimit(domain)
     if (limit) {
+      if (isDelayNormal()) {
+        const mid = (limit.minDelay + limit.maxDelay) / 2
+        const sd = (limit.maxDelay - limit.minDelay) / 4
+        return new Promise(r => setTimeout(r, normalDelayMs(mid, sd, limit.minDelay, limit.maxDelay)))
+      }
       return new Promise(r => setTimeout(r, delayMs(limit.minDelay, limit.maxDelay)))
     }
   } catch { }
+  if (isDelayNormal()) {
+    const mid = (baseMin + baseMax) / 2
+    const sd = (baseMax - baseMin) / 4
+    return new Promise(r => setTimeout(r, normalDelayMs(mid, sd, baseMin, baseMax)))
+  }
   return new Promise(r => setTimeout(r, delayMs(baseMin, baseMax)))
 }
 

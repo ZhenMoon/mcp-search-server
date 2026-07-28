@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio'
 import type { SearchResult, SearchEngine } from '../types.js'
 import { getCookie, setCookie, clearCookies, warmUp } from '../session.js'
-import { pickHeaders, isBlocked, isMobileEnabled, getMobileSearchUrl, pickMobileHeaders } from '../scraper.js'
+import { pickHeaders, isBlocked, isMobileEnabled, getMobileSearchUrl, pickMobileHeaders, isDelayNormal, normalDelayMs } from '../scraper.js'
 import { fetchWithTLS } from '../tlsFingerprint.js'
 
 const DOMAIN = 'baidu.com'
@@ -42,7 +42,14 @@ function buildHeaders(extra: Record<string, string> = {}): Record<string, string
 }
 
 function randomDelay(min = 200, max = 800): Promise<void> {
-  const ms = Math.floor(Math.random() * (max - min + 1)) + min
+  let ms: number
+  if (isDelayNormal()) {
+    const mid = (min + max) / 2
+    const sd = (max - min) / 4
+    ms = normalDelayMs(mid, sd, min, max)
+  } else {
+    ms = Math.floor(Math.random() * (max - min + 1)) + min
+  }
   return new Promise(r => setTimeout(r, ms))
 }
 
