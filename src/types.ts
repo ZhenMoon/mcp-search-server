@@ -3,6 +3,8 @@ export interface SearchResult {
   url: string
   description: string
   engine: string
+  score?: number
+  publishedDate?: string
 }
 
 export interface SearchOptions {

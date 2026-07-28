@@ -13,6 +13,7 @@ import { getCached, setCache } from './cache.js'
 import { isEngineAvailable, recordFailure, recordSuccess } from './circuitBreaker.js'
 import { expandQuery } from './queryExpander.js'
 import { resolveResultUrls } from './scraper.js'
+import { formatResultJson, extractDate, extractDomain } from './metadata.js'
 
 const ENGINES: Record<string, SearchEngine> = {
   duckduckgo: new DuckDuckGoEngine(),
@@ -309,6 +310,13 @@ export async function aggregateWithReport(options: SearchOptions): Promise<Aggre
 
   // resolve redirect URLs (360, Baidu, Sogou) for final results
   await resolveResultUrls(final)
+
+  // attach metadata: score, publishedDate, domain
+  const scoreMap = new Map(scored.map(x => [x.result.url, x.score]))
+  for (const r of final) {
+    r.publishedDate = extractDate(r.title) || extractDate(r.description) || undefined
+    r.score = scoreMap.get(r.url) || 0
+  }
 
   // write cache
   setCache(query, engineNames as string[], false, { results: final, reports })

@@ -7,6 +7,7 @@ import { aggregateWithReport } from './aggregator.js'
 import { fetchPage } from './fetcher.js'
 import { adaptQuery, getQueryInfo } from './queryAdapter.js'
 import { saveResults, refineResults, SEARCH_PROFILES } from './searchContext.js'
+import { formatResultJson, extractDomain, extractDate } from './metadata.js'
 
 const ALL_ENGINES = ['duckduckgo', 'bing', 'sogou', 'baidu', 'brave', 'github', 'zhihu', '360'] as const
 
@@ -72,10 +73,11 @@ server.tool(
     ).join(' ')
 
     const body = formatResults(results)
+    const jsonContent = formatResultJson(results)
     return {
       content: [{
         type: 'text',
-        text: `【会话ID】${sessionId}\n${header.length > 0 ? `【查询解析】${header.join(' | ')}\n` : ''}【引擎状态】${statusLine}\n\n${body}`,
+        text: `【会话ID】${sessionId}\n${header.length > 0 ? `【查询解析】${header.join(' | ')}\n` : ''}【引擎状态】${statusLine}\n\n${body}\n\n---\n${jsonContent}`,
       }],
     }
   },
@@ -241,6 +243,7 @@ server.tool(
         }
       }
     })
+    lines.push(`\n---\n${formatResultJson(results)}`)
     return { content: [{ type: 'text', text: lines.join('\n') }] }
   },
 )
