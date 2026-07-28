@@ -4,7 +4,7 @@
 
 <div align="center">
 
-多引擎聚合搜索本地 MCP 服务器 — **8 引擎并行** + **去重排序** + **网页正文提取** + **深度研究**。
+多引擎聚合搜索本地 MCP 服务器 — **8 引擎并行** + **模糊去重** + **网页正文提取** + **深度研究** + **自定义场景**。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
@@ -36,8 +36,8 @@
 - **深度研究** — `research` 一键搜索 → 抓取 → 综合结论
 - **复合工具** — `search_and_fetch` 搜索同时抓取正文
 - **搜索会话** — 结果持久化，`refine` 二次过滤（引擎/关键词/域名/分页）
-- **搜索场景** — `profile` 参数：general / tech / chinese / code / fast / deep
-- **结果聚合** — 多引擎去重（URL + 标题相似度）、关联性评分排序、引擎均衡输出
+- **搜索场景** — general / tech / chinese / code / fast / deep 预设 + 环境变量 `SEARCH_CUSTOM_ENGINES` 自定义
+- **结果聚合** — 模糊去重（Jaccard 标题相似度 + URL 去重）、关联性评分排序、引擎均衡输出
 - **查询扩展** — 结果不足时自动用同义词扩展查询，提升召回率
 - **无用过滤** — 剔除广告词、导航词、跟踪参数/域名、短摘要、错误页面
 - **网页抓取** — 使用 Mozilla Readability 提取正文，自动删除重复段落、版权声明、尾部推荐内容

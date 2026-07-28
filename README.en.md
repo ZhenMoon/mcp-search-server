@@ -4,7 +4,7 @@
 
 <div align="center">
 
-Local multi-engine aggregated search MCP server — **8 engines parallel** + **dedup/ranking** + **page fetch** + **deep research**.
+Local multi-engine aggregated search MCP server — **8 engines parallel** + **fuzzy dedup** + **page fetch** + **deep research** + **custom profiles**.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
