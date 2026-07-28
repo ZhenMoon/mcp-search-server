@@ -1,8 +1,8 @@
 import { JSDOM } from 'jsdom'
 import { Readability } from '@mozilla/readability'
 import { deduplicateContent } from './dedupContent.js'
+import { pickHeaders } from './scraper.js'
 
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
 const MAX_RETRIES = 2
 const RETRY_DELAY = 1000
 
@@ -18,12 +18,9 @@ async function fetchWithRetry(url: string, timeout: number, attempt: number): Pr
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeout)
   try {
+    const origin = new URL(url).hostname
     const res = await fetch(url, {
-      headers: {
-        'User-Agent': USER_AGENT,
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'zh-CN,zh;q=0.9',
-      },
+      headers: pickHeaders(origin),
       signal: controller.signal,
       redirect: 'follow',
     })

@@ -1,6 +1,8 @@
 import * as cheerio from 'cheerio'
 import type { SearchResult, SearchEngine } from '../types.js'
-import { pickHeaders, isBlocked } from '../scraper.js'
+import { pickHeaders, isBlocked, adaptiveDelay } from '../scraper.js'
+
+const DOMAIN = 'so.com'
 
 export class So360Engine implements SearchEngine {
   readonly name = '360'
@@ -18,7 +20,7 @@ export class So360Engine implements SearchEngine {
 
         const res = await fetch(url.toString(), {
           headers: {
-            ...pickHeaders(),
+            ...pickHeaders(DOMAIN),
             Referer: 'https://www.so.com/',
           },
           signal,
@@ -47,6 +49,7 @@ export class So360Engine implements SearchEngine {
         }
         if (count === 0) break
         page++
+        if (page < 5) await adaptiveDelay(DOMAIN, 300, 1000)
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') return results.slice(0, maxResults)

@@ -7,12 +7,14 @@ import { BraveEngine } from './engines/brave.js'
 import { GitHubEngine } from './engines/github.js'
 import { ZhihuEngine } from './engines/zhihu.js'
 import { So360Engine } from './engines/360.js'
+import { CustomSearchEngine } from './customEngine.js'
+import { getCustomEngines, getRateLimit } from './config.js'
 import { trimResults, isFreshnessQuery, isStaticPage } from './filter.js'
 import { adaptQuery, getQueryInfo } from './queryAdapter.js'
 import { getCached, setCache } from './cache.js'
 import { isEngineAvailable, recordFailure, recordSuccess } from './circuitBreaker.js'
 import { expandQuery } from './queryExpander.js'
-import { resolveResultUrls } from './scraper.js'
+import { resolveResultUrls, adaptiveDelay } from './scraper.js'
 import { formatResultJson, extractDate, extractDomain } from './metadata.js'
 
 const ENGINES: Record<string, SearchEngine> = {
@@ -24,6 +26,15 @@ const ENGINES: Record<string, SearchEngine> = {
   github: new GitHubEngine(),
   zhihu: new ZhihuEngine(),
   '360': new So360Engine(),
+}
+
+// inject custom engines
+for (const def of getCustomEngines()) {
+  ENGINES[def.name] = new CustomSearchEngine(def)
+}
+
+export function listAllEngines(): string[] {
+  return Object.keys(ENGINES).sort()
 }
 
 const DEFAULT_TIMEOUT = 15000

@@ -13,6 +13,16 @@ const CHROME_PATHS = [
   'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
 ]
 
+const STEALTH_ARGS = [
+  '--disable-blink-features=AutomationControlled',
+  '--disable-automation',
+  '--no-sandbox',
+  '--disable-web-security',
+  '--disable-features=IsolateOrigins,site-per-process',
+  '--disable-setuid-sandbox',
+  '--disable-dev-shm-usage',
+]
+
 function findChrome(): string {
   const envPath = process.env.CHROME_PATH
   if (envPath && existsSync(envPath)) return envPath
@@ -46,6 +56,26 @@ function tryConnect(port: number): Promise<Browser> {
   return lazyPuppeteer().then(p => p.connect({ browserURL: `http://127.0.0.1:${port}` }) as Promise<Browser>)
 }
 
+async function stealthPage(page: Page): Promise<void> {
+  await page.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined })
+    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] as unknown as PluginArray })
+    Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN', 'zh', 'en'] })
+    Object.defineProperty(navigator.hardwareConcurrency, 'toString', { get: () => () => '8' })
+  })
+
+  const uas = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+  ]
+  await page.setUserAgent(uas[Math.floor(Math.random() * uas.length)])
+  await page.setViewport({
+    width: 1280 + Math.floor(Math.random() * 200),
+    height: 800 + Math.floor(Math.random() * 200),
+  })
+}
+
 async function getBrowser(): Promise<Browser> {
   if (browser?.connected) return browser
   if (launching) return launching
@@ -54,22 +84,23 @@ async function getBrowser(): Promise<Browser> {
     const exePath = findChrome()
     if (!exePath) throw new Error('Chrome/Edge not found.')
 
-    // 1) Try connecting to any already-running Chrome with debug port
     for (const port of [9222, 9223, 9224]) {
       try { return await tryConnect(port) } catch { }
     }
 
-    // 2) Launch Chrome ourselves
     const debugPort = 9222 + Math.floor(Math.random() * 100)
     const userProfile = findUserProfile()
 
-    // Try real profile first (Chrome must NOT be running)
+    const launchArgs = [
+      `--remote-debugging-port=${debugPort}`,
+      '--no-first-run', '--no-default-browser-check',
+      '--window-size=1280,800',
+      ...STEALTH_ARGS,
+    ]
+
     if (userProfile) {
       chromeProcess = spawn(exePath, [
-        `--remote-debugging-port=${debugPort}`,
-        `--user-data-dir=${userProfile}`,
-        '--no-first-run', '--no-default-browser-check',
-        '--window-size=1280,800',
+        `--user-data-dir=${userProfile}`, ...launchArgs,
       ], { stdio: 'ignore', detached: true })
       chromeProcess.unref()
 
@@ -80,12 +111,8 @@ async function getBrowser(): Promise<Browser> {
       killChrome()
     }
 
-    // Fallback: fresh profile (works even when Chrome is running)
     chromeProcess = spawn(exePath, [
-      `--remote-debugging-port=${debugPort}`,
-      `--user-data-dir=${fallbackProfile()}`,
-      '--no-first-run', '--no-default-browser-check',
-      '--window-size=1280,800',
+      `--user-data-dir=${fallbackProfile()}`, ...launchArgs,
     ], { stdio: 'ignore', detached: true })
     chromeProcess.unref()
 
@@ -119,7 +146,9 @@ export async function getPage(): Promise<Page | null> {
   if (!isBrowserEnabled()) return null
   try {
     const b = await getBrowser()
-    return b.newPage()
+    const page = await b.newPage()
+    await stealthPage(page)
+    return page
   } catch { return null }
 }
 

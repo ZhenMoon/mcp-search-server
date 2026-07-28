@@ -72,12 +72,15 @@ const BLOCKED_PATTERNS = [
   /antispider/i,
   /just\s*a\s*moment/i,
   /please\s*wait/i,
+  /access\s*denied/i,
+  /rate\s*limit/i,
+  /too\s*many\s*requests/i,
 ]
 
 let profileIndex = 0
 const redirectCache = new Map<string, string>()
 
-export function pickHeaders(): Record<string, string> {
+export function pickHeaders(domain?: string): Record<string, string> {
   profileIndex = (profileIndex + 1) % PROFILES.length
   const p = PROFILES[profileIndex]
 
@@ -100,18 +103,49 @@ export function pickHeaders(): Record<string, string> {
     headers['sec-ch-ua-platform'] = p.platform
   }
 
+  if (domain) {
+    try {
+      const { getExtraHeaders } = require('./config.js')
+      const extra = getExtraHeaders(domain)
+      Object.assign(headers, extra)
+    } catch { }
+  }
+
   return headers
+}
+
+export function createFetchOptions(domain?: string): Record<string, unknown> {
+  const opts: Record<string, unknown> = {}
+  const proxyUrl = process.env.SEARCH_PROXY
+  if (proxyUrl) {
+    try {
+      const { ProxyAgent } = require('undici')
+      opts.dispatcher = new ProxyAgent(proxyUrl)
+    } catch { }
+  }
+  return opts
 }
 
 export function isBlocked(html: string): boolean {
   const lower = html.toLowerCase()
   if (BLOCKED_PATTERNS.some(p => p.test(lower))) return true
-  if (html.length < 8000 && (/captcha/.test(lower) || /challenge/.test(lower) || /verify/.test(lower) || /blocked/.test(lower) || /安全检查/.test(lower) || /安全验证/.test(lower))) return true
+  if (html.length < 8000 && (/captcha/.test(lower) || /challenge/.test(lower) || /verify/.test(lower) || /blocked/.test(lower) || /安全检查/.test(lower) || /安全验证/.test(lower) || /安全检测/.test(lower))) return true
   return false
 }
 
 export function delayMs(min = 300, max = 1200): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
+export async function adaptiveDelay(domain: string, baseMin = 400, baseMax = 1500): Promise<void> {
+  try {
+    const { getRateLimit } = require('./config.js')
+    const limit = getRateLimit(domain)
+    if (limit) {
+      return new Promise(r => setTimeout(r, delayMs(limit.minDelay, limit.maxDelay)))
+    }
+  } catch { }
+  return new Promise(r => setTimeout(r, delayMs(baseMin, baseMax)))
 }
 
 export async function resolveRedirect(url: string): Promise<string> {

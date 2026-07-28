@@ -1,6 +1,8 @@
 import * as cheerio from 'cheerio'
 import type { SearchResult, SearchEngine } from '../types.js'
-import { pickHeaders, isBlocked } from '../scraper.js'
+import { pickHeaders, isBlocked, adaptiveDelay } from '../scraper.js'
+
+const DOMAIN = 'sogou.com'
 
 export class SogouEngine implements SearchEngine {
   readonly name = 'sogou'
@@ -17,7 +19,7 @@ export class SogouEngine implements SearchEngine {
 
       try {
         const res = await fetch(url.toString(), {
-          headers: pickHeaders(),
+          headers: pickHeaders(DOMAIN),
           signal,
         })
 
@@ -41,6 +43,7 @@ export class SogouEngine implements SearchEngine {
         }
         if (count === 0) break
         page++
+        if (page < 3) await adaptiveDelay(DOMAIN, 1000, 2000)
       } catch {
         break
       }

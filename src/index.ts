@@ -3,20 +3,21 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
-import { aggregateWithReport } from './aggregator.js'
+import { aggregateWithReport, listAllEngines } from './aggregator.js'
 import { fetchPage } from './fetcher.js'
 import { adaptQuery, getQueryInfo } from './queryAdapter.js'
 import { saveResults, refineResults, SEARCH_PROFILES } from './searchContext.js'
 import { formatResultJson, extractDomain, extractDate } from './metadata.js'
+import { loadConfig, getCustomEngines } from './config.js'
 
 const ALL_ENGINES = ['duckduckgo', 'bing', 'sogou', 'baidu', 'brave', 'github', 'zhihu', '360'] as const
 
-type Engine = typeof ALL_ENGINES[number]
+type BuiltinEngine = typeof ALL_ENGINES[number]
 
-function defaultEngines(): Engine[] {
+function defaultEngines(): BuiltinEngine[] {
   const env = process.env.SEARCH_ENGINES
   if (env) {
-    const parsed = env.split(',').map(s => s.trim()).filter((s): s is Engine =>
+    const parsed = env.split(',').map(s => s.trim()).filter((s): s is BuiltinEngine =>
       ALL_ENGINES.includes(s as any)
     )
     if (parsed.length > 0) return parsed
@@ -29,10 +30,12 @@ function defaultEngines(): Engine[] {
   return ['bing', 'baidu', '360', 'github', 'zhihu']
 }
 
+const ALL_ENGINE_NAMES = listAllEngines()
+
 const server = new McpServer({
   name: 'mcp-search-server',
-  version: '1.0.0',
-  description: '多引擎聚合搜索本地 MCP 服务器 - 8 引擎并行，模糊去重、正文提取、深度研究，自定义场景，可选无头浏览器',
+  version: '1.2.0',
+  description: '多引擎聚合搜索本地 MCP 服务器 - 8 引擎并行，模糊去重、正文提取、深度研究，自定义场景，自定义搜索引擎，反爬增强，可选无头浏览器',
 })
 
 server.tool(
@@ -41,16 +44,16 @@ server.tool(
     query: z.string().describe('搜索关键词（支持 -keyword 排除、"短语搜索"、site:域名）'),
     maxResults: z.number().int().min(1).max(50).default(10).describe('最大返回结果数'),
     engines: z
-      .array(z.enum(ALL_ENGINES))
+      .array(z.string())
       .default(defaultEngines())
-      .describe('搜索引擎列表'),
+      .describe('搜索引擎列表（内置 + 自定义）'),
     timeout: z.number().int().min(3000).max(60000).default(15000).describe('搜索超时(毫秒)'),
     profile: z.string().optional().describe('搜索场景: general/tech/chinese/code/fast/deep'),
   },
   async ({ query, maxResults, engines, timeout, profile }) => {
     let activeEngines = engines
     if (profile && SEARCH_PROFILES[profile]) {
-      activeEngines = SEARCH_PROFILES[profile].engines as typeof engines
+      activeEngines = SEARCH_PROFILES[profile].engines
     }
     const { results, reports } = await aggregateWithReport({ query, maxResults, engines: activeEngines, timeout })
     if (results.length === 0) {
@@ -124,9 +127,9 @@ server.tool(
     query: z.string().describe('要分析的主题或问题'),
     mode: z.enum(['对比', '综合', '正反面']).default('综合').describe('分析模式'),
     engines: z
-      .array(z.enum(ALL_ENGINES))
+      .array(z.string())
       .default(defaultEngines())
-      .describe('搜索引擎列表'),
+      .describe('搜索引擎列表（内置 + 自定义）'),
     timeout: z.number().int().min(5000).max(60000).default(20000).describe('搜索超时(毫秒)'),
   },
   async ({ query, mode, engines, timeout }) => {
@@ -201,8 +204,23 @@ server.tool(
   {},
   async () => {
     return {
-      content: [{ type: 'text', text: ALL_ENGINES.join('\n') }],
+      content: [{ type: 'text', text: ALL_ENGINE_NAMES.join('\n') }],
     }
+  },
+)
+
+server.tool(
+  'custom_engines',
+  {},
+  async () => {
+    const defs = getCustomEngines()
+    if (defs.length === 0) {
+      return { content: [{ type: 'text', text: '尚未配置自定义搜索引擎。\n在项目目录下创建 mcp-search-config.json 并添加 customEngines 数组。' }] }
+    }
+    const lines = defs.map(d =>
+      `  ${d.name}: ${d.displayName || d.name}\n    URL: ${d.searchUrl}\n    选择器: item=${d.selectors.item}, title=${d.selectors.title}, url=${d.selectors.url}`
+    )
+    return { content: [{ type: 'text', text: `自定义搜索引擎 (${defs.length} 个):\n\n${lines.join('\n')}` }] }
   },
 )
 
@@ -212,14 +230,14 @@ server.tool(
     query: z.string().describe('搜索关键词'),
     maxResults: z.number().int().min(1).max(20).default(5).describe('搜索结果数'),
     fetchCount: z.number().int().min(0).max(5).default(3).describe('抓取前 N 条正文'),
-    engines: z.array(z.enum(ALL_ENGINES)).default(defaultEngines()).describe('搜索引擎列表'),
+    engines: z.array(z.string()).default(defaultEngines()).describe('搜索引擎列表（内置 + 自定义）'),
     timeout: z.number().int().min(3000).max(60000).default(15000).describe('超时(毫秒)'),
     profile: z.string().optional().describe('搜索场景'),
   },
   async ({ query, maxResults, fetchCount, engines, timeout, profile }) => {
     let activeEngines = engines
     if (profile && SEARCH_PROFILES[profile]) {
-      activeEngines = SEARCH_PROFILES[profile].engines as typeof engines
+      activeEngines = SEARCH_PROFILES[profile].engines
     }
     const { results, reports } = await aggregateWithReport({ query, maxResults, engines: activeEngines, timeout })
     if (results.length === 0) {

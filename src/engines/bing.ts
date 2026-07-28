@@ -1,8 +1,10 @@
 import * as cheerio from 'cheerio'
 import type { SearchResult, SearchEngine } from '../types.js'
-import { pickHeaders, isBlocked, delayMs } from '../scraper.js'
+import { pickHeaders, isBlocked, delayMs, adaptiveDelay } from '../scraper.js'
 
 const BING_URL = 'https://www.bing.com/search'
+
+const BING_DOMAIN = 'bing.com'
 
 export class BingEngine implements SearchEngine {
   readonly name = 'bing'
@@ -19,7 +21,7 @@ export class BingEngine implements SearchEngine {
         url.searchParams.set('setlang', 'zh-CN')
 
         const res = await fetch(url.toString(), {
-          headers: pickHeaders(),
+          headers: pickHeaders(BING_DOMAIN),
           signal,
         })
 
@@ -47,7 +49,7 @@ export class BingEngine implements SearchEngine {
 
         if (pageCount === 0) break
         page++
-        if (page < 3) await new Promise(r => setTimeout(r, delayMs()))
+        if (page < 3) await adaptiveDelay(BING_DOMAIN, 300, 1200)
       }
     } catch (err) {
       if ((err as Error).name === 'AbortError') throw err
