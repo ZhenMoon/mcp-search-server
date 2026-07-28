@@ -1,11 +1,14 @@
+// Circuit breaker: track recent failures and cooldown
+// Reset aggressively: any success clears all history
+
 interface BreakerState {
   failures: number
   lastFailure: number
 }
 
 const state = new Map<string, BreakerState>()
-const MAX_FAILURES = 5
-const COOLDOWN_MS = 60 * 1000
+const MAX_FAILURES = 10
+const COOLDOWN_MS = 30 * 1000
 
 export function isEngineAvailable(name: string): boolean {
   const s = state.get(name)
@@ -28,17 +31,23 @@ export function recordFailure(name: string): void {
 export function recordSuccess(name: string): void {
   const s = state.get(name)
   if (s) {
-    s.failures = 0  // full reset on success
+    s.failures = 0
   }
 }
 
+export function resetAll(): void {
+  state.clear()
+}
+
 export function getBreakerStatus(): string[] {
+  if (state.size === 0) return ['(无记录)']
   const lines: string[] = []
   for (const [name, s] of state) {
-    const remaining = s.failures >= MAX_FAILURES
+    const blocked = s.failures >= MAX_FAILURES
+    const remaining = blocked
       ? Math.max(0, Math.ceil((COOLDOWN_MS - (Date.now() - s.lastFailure)) / 1000))
       : 0
-    lines.push(`${name}: ${s.failures}/${MAX_FAILURES} 失败${remaining > 0 ? ` (冷却 ${remaining}s)` : ''}`)
+    lines.push(`${name}: ${s.failures}/${MAX_FAILURES}${blocked ? ` ❄️${remaining}s` : ''}`)
   }
   return lines
 }
