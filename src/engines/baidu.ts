@@ -45,6 +45,8 @@ export class BaiduEngine implements SearchEngine {
           const rawUrl = link.attr('href') || ''
           if (!rawUrl) continue
 
+          if (title.includes('百度图片') || rawUrl.includes('image.baidu.com')) continue
+
           const realUrl = resolveBaiduUrl(rawUrl)
 
           let description = ''

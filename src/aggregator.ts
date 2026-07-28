@@ -20,7 +20,7 @@ const ENGINES: Record<string, SearchEngine> = {
 }
 
 const DEFAULT_TIMEOUT = 15000
-const MIN_PER_ENGINE = 10
+const MIN_PER_ENGINE = 15
 
 function splitTerms(s: string): string[] {
   const cleaned = s.toLowerCase().replace(/[^\w\u4e00-\u9fff\s]/g, ' ').trim()
@@ -74,37 +74,43 @@ export async function aggregateSearch(options: SearchOptions): Promise<SearchRes
 
   if (selectedEngines.length === 0) return []
 
-  const perEngine = Math.max(MIN_PER_ENGINE, Math.ceil(maxResults * 2 / selectedEngines.length))
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeout)
+  const perEngine = Math.max(MIN_PER_ENGINE, Math.ceil(maxResults * 2.5 / selectedEngines.length))
 
-  try {
-    const results = await Promise.allSettled(
-      selectedEngines.map(engine =>
-        engine.search(query, perEngine, controller.signal)
-      )
+  const enginesWithSignal = selectedEngines.map(engine => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeout)
+    return { engine, controller, timer }
+  })
+
+  const results = await Promise.allSettled(
+    enginesWithSignal.map(({ engine, controller }) =>
+      engine.search(query, perEngine, controller.signal).finally(() => {
+        clearTimeout(enginesWithSignal.find(e => e.engine === engine)?.timer)
+      })
     )
+  )
 
-    const all: SearchResult[] = []
-    for (const r of results) {
-      if (r.status === 'fulfilled') {
-        all.push(...r.value)
-      }
-    }
-
-    const trimmed = trimResults(all)
-
-    const scored = trimmed
-      .map(r => ({ result: r, score: scoreRelevance(query, r) }))
-      .filter(x => x.score > 0)
-
-    scored.sort((a, b) => b.score - a.score)
-
-    const ranked = scored.map(x => x.result)
-    const deduped = deduplicate(ranked)
-
-    return deduped.slice(0, maxResults)
-  } finally {
+  for (const { timer } of enginesWithSignal) {
     clearTimeout(timer)
   }
+
+  const all: SearchResult[] = []
+  for (const r of results) {
+    if (r.status === 'fulfilled') {
+      all.push(...r.value)
+    }
+  }
+
+  const trimmed = trimResults(all)
+
+  const scored = trimmed
+    .map(r => ({ result: r, score: scoreRelevance(query, r) }))
+    .filter(x => x.score > 0)
+
+  scored.sort((a, b) => b.score - a.score)
+
+  const ranked = scored.map(x => x.result)
+  const deduped = deduplicate(ranked)
+
+  return deduped.slice(0, maxResults)
 }
