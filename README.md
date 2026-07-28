@@ -4,12 +4,15 @@
 
 <div align="center">
 
-多引擎聚合搜索 MCP 服务器 — **7 个搜索引擎**并行搜索、自动去重、无用过滤、关联性排序、网页正文提取。
+多引擎聚合搜索 MCP 服务器 — **7 引擎并行** + **AI 语义去重/重排序** + **网页正文提取** + **深度研究**。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
+[![Xenova](https://img.shields.io/badge/AI-Transformers.js-orange)](https://huggingface.co/Xenova)
 
 兼容 **Cursor** · **Claude Desktop** · **Continue.dev** · **Windsurf** · **Trae**
+
+**隐私安全** · **零 API 费用** · **完全开源** · **可部署内网**
 
 </div>
 
@@ -30,12 +33,19 @@
 
 ## 功能特性
 
-- **多引擎并行** — 同时调用多个搜索引擎；`Promise.allSettled` 确保单引擎失败不影响整体
-- **自动去重** — URL 归一化 + 标题/摘要 Jaccard 相似度去重
-- **关联性排序** — 按查询词在标题/摘要/URL 中的匹配度加权排序，零匹配结果自动过滤
+- **多引擎并行** — 同时调用 7 个搜索引擎；`Promise.allSettled` 确保单引擎失败不影响整体
+- **AI 语义去重**（可选）— Jina-Embeddings-v2 余弦相似度去重，替代传统 Jaccard
+- **AI 重排序**（可选）— BGE-Reranker-v2-m3 Cross-encoder 关联性评分
+- **AI 摘要生成** — DistilBART-CNN 生成文章摘要（`summarize` / `fetch_and_summarize`）
+- **深度研究** — `research` 一键搜索 → 抓取 → 逐篇摘要 → 综合结论
+- **复合工具** — `search_and_fetch` 搜索同时抓取正文、`fetch_and_summarize` 抓取即摘要
+- **搜索会话** — 结果持久化，`refine` 二次过滤（引擎/关键词/域名/分页）
+- **搜索场景** — `profile` 参数：general / tech / chinese / code / fast / deep
 - **无用过滤** — 剔除广告词、导航词、跟踪参数/域名、短摘要、错误页面
 - **网页抓取** — 使用 Mozilla Readability 提取正文，自动删除重复段落、版权声明、尾部推荐内容
-- **MCP 协议** — 标准 stdio 传输，开箱即用
+- **MCP 协议** — 标准 stdio 传输，Cursor/Claude Desktop 即插即用
+- **隐私安全** — 全部本地运行，搜索记录不经过任何第三方服务器
+- **零 API 费用** — 直接调用免费搜索引擎，无需付费 API
 - **可配置** — 通过环境变量自由组合引擎
 
 ---

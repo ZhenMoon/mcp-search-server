@@ -4,12 +4,15 @@
 
 <div align="center">
 
-Multi-engine aggregated search MCP server — **7 search engines** in parallel, deduplication, spam filtering, relevance ranking, and web page content extraction.
+Multi-engine aggregated search MCP server — **7 engines parallel** + **AI semantic dedup/rerank** + **page fetch** + **deep research**.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
+[![Xenova](https://img.shields.io/badge/AI-Transformers.js-orange)](https://huggingface.co/Xenova)
 
 Compatible with **Cursor** · **Claude Desktop** · **Continue.dev** · **Windsurf** · **Trae**
+
+**Privacy-first** · **Zero API cost** · **Fully open source** · **On-premises deployable**
 
 </div>
 
@@ -30,12 +33,19 @@ Compatible with **Cursor** · **Claude Desktop** · **Continue.dev** · **Windsu
 
 ## Features
 
-- **Multi-engine Parallel** — Queries multiple engines simultaneously; `Promise.allSettled` ensures a single engine failure doesn't affect the overall result
-- **Automatic Deduplication** — URL normalization + Jaccard similarity on titles and descriptions
-- **Relevance Ranking** — Weighted scoring based on query term matches in titles, descriptions, and URLs; zero-match results are automatically filtered out
+- **Multi-engine Parallel** — Queries 7 engines simultaneously; `Promise.allSettled` ensures single engine failure doesn't affect overall result
+- **AI Semantic Dedup** (optional) — Jina-Embeddings-v2 cosine similarity dedup, replacing traditional Jaccard
+- **AI Re-ranking** (optional) — BGE-Reranker-v2-m3 Cross-encoder relevance scoring
+- **AI Summarization** — DistilBART-CNN for article summarization (`summarize` / `fetch_and_summarize`)
+- **Deep Research** — `research` does search → fetch → per-page summary → conclusion in one step
+- **Composite Tools** — `search_and_fetch` fetches pages alongside search results
+- **Search Sessions** — Persistent results, `refine` for secondary filtering (engine/keyword/domain/pagination)
+- **Search Profiles** — `profile` parameter: general / tech / chinese / code / fast / deep
 - **Spam Filtering** — Removes ads, navigation keywords, tracking parameters/domains, short descriptions, and error pages
-- **Page Fetching** — Extracts readable content using Mozilla Readability; automatically removes duplicate paragraphs, copyright notices, and tail recommendations
-- **MCP Protocol** — Standard stdio transport, works out of the box
+- **Page Fetching** — Mozilla Readability content extraction, auto-removes duplicates, copyright notices, and tail recommendations
+- **MCP Protocol** — Standard stdio transport, works with Cursor/Claude Desktop out of the box
+- **Privacy-first** — Fully local, search history never leaves your machine
+- **Zero API Cost** — Uses free search engines directly, no paid API required
 - **Configurable** — Choose which engines to enable via environment variables
 
 ---
