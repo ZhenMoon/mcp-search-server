@@ -1,8 +1,8 @@
 # MCP Search Server
 
-多引擎聚合搜索 MCP 服务器，支持 7 个搜索引擎并行搜索、自动去重、无用信息过滤，以及网页正文提取。
+[English](./README.en.md) | 中文
 
-Multi-engine aggregated search MCP server with 7 search engines, automatic deduplication, spam filtering, and web page content extraction.
+多引擎聚合搜索 MCP 服务器，支持 7 个搜索引擎并行搜索、自动去重、无用信息过滤，以及网页正文提取。
 
 ---
 
