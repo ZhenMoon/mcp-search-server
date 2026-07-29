@@ -74,8 +74,9 @@
 > 国内网络：sogou / duckduckgo / brave 可能失效，可用 `SEARCH_DISABLED_ENGINES` 禁用。
 
 ---
-
 ## 快速开始
+
+### 直接运行
 
 ```bash
 git clone https://github.com/ZhenMoon/mcp-search-server.git
@@ -83,6 +84,45 @@ cd mcp-search-server
 npm install
 npm run build
 ```
+
+### Docker 一键部署
+
+```bash
+# 构建镜像
+docker compose build
+
+# 启动（前台运行，MCP stdio 模式）
+docker compose run --rm mcp-search
+
+# 或在后台运行
+docker compose up -d
+```
+
+客户端配置（Docker）：
+
+```json
+{
+  "mcpServers": {
+    "mcp-search": {
+      "command": "docker",
+      "args": ["compose", "run", "--rm", "mcp-search"]
+    }
+  }
+}
+```
+
+使用自定义配置文件：
+
+```bash
+# 创建配置目录
+mkdir config
+cp mcp-search-config.example.jsonc config/mcp-search-config.json
+
+# 编辑 config/mcp-search-config.json 后启动
+docker compose run --rm mcp-search
+```
+
+环境变量通过 `.env` 文件或 `docker-compose.yml` 中的 `environment` 设置。支持所有 [环境变量](#环境变量)。
 
 ---
 

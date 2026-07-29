@@ -77,12 +77,45 @@ Default engines: `bing` `baidu` `360` `github` `zhihu`
 
 ## Quick Start
 
+### Local
+
 ```bash
 git clone https://github.com/ZhenMoon/mcp-search-server.git
 cd mcp-search-server
 npm install
 npm run build
 ```
+
+### Docker (one-click deploy)
+
+```bash
+docker compose build
+docker compose run --rm mcp-search
+```
+
+Client config (Docker):
+
+```json
+{
+  "mcpServers": {
+    "mcp-search": {
+      "command": "docker",
+      "args": ["compose", "run", "--rm", "mcp-search"]
+    }
+  }
+}
+```
+
+Custom config via `config/` directory:
+
+```bash
+mkdir config
+cp mcp-search-config.example.jsonc config/mcp-search-config.json
+# edit config/mcp-search-config.json then:
+docker compose run --rm mcp-search
+```
+
+Environment variables can be set via `.env` file or `docker-compose.yml`. All [env vars](#environment-variables) are supported.
 
 ---
 
