@@ -7,6 +7,7 @@ import { BraveEngine } from './engines/brave.js'
 import { GitHubEngine } from './engines/github.js'
 import { ZhihuEngine } from './engines/zhihu.js'
 import { So360Engine } from './engines/360.js'
+import { CsdnEngine } from './engines/csdn.js'
 import { CustomSearchEngine } from './customEngine.js'
 import { getCustomEngines, getRateLimit } from './config.js'
 import { trimResults, isFreshnessQuery, isStaticPage } from './filter.js'
@@ -26,6 +27,7 @@ const ENGINES: Record<string, SearchEngine> = {
   github: new GitHubEngine(),
   zhihu: new ZhihuEngine(),
   '360': new So360Engine(),
+  csdn: new CsdnEngine(),
 }
 
 // inject custom engines

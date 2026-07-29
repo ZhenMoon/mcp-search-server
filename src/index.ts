@@ -10,7 +10,7 @@ import { saveResults, refineResults, SEARCH_PROFILES } from './searchContext.js'
 import { formatResultJson, extractDomain, extractDate } from './metadata.js'
 import { loadConfig, getCustomEngines } from './config.js'
 
-const ALL_ENGINES = ['duckduckgo', 'bing', 'sogou', 'baidu', 'brave', 'github', 'zhihu', '360'] as const
+const ALL_ENGINES = ['duckduckgo', 'bing', 'sogou', 'baidu', 'brave', 'github', 'zhihu', '360', 'csdn'] as const
 
 type BuiltinEngine = typeof ALL_ENGINES[number]
 
@@ -27,7 +27,7 @@ function defaultEngines(): BuiltinEngine[] {
     const set = new Set(disabled.split(',').map(s => s.trim()))
     return ALL_ENGINES.filter(e => !set.has(e))
   }
-  return ['bing', 'baidu', '360', 'github', 'zhihu']
+  return ['bing', 'baidu', '360', 'github', 'zhihu', 'csdn']
 }
 
 const ALL_ENGINE_NAMES = listAllEngines()
@@ -35,7 +35,7 @@ const ALL_ENGINE_NAMES = listAllEngines()
 const server = new McpServer({
   name: 'mcp-search-server',
   version: '1.2.0',
-  description: '多引擎聚合搜索本地 MCP 服务器 - 8 引擎并行，模糊去重、正文提取、深度研究，自定义场景，自定义搜索引擎，反爬增强，可选无头浏览器',
+  description: '多引擎聚合搜索本地 MCP 服务器 - 9 引擎并行，模糊去重、正文提取、深度研究，自定义场景，自定义搜索引擎，反爬增强，可选无头浏览器',
 })
 
 server.tool(

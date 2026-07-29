@@ -4,7 +4,7 @@
 
 <div align="center">
 
-Local multi-engine aggregated search MCP server — **8+ engines parallel** + **fuzzy dedup** + **page fetch** + **deep research** + **custom profiles** + **custom engines**.
+Local multi-engine aggregated search MCP server — **9+ engines parallel** + **fuzzy dedup** + **page fetch** + **deep research** + **custom profiles** + **custom engines**.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
@@ -67,9 +67,10 @@ Compatible with **Cursor** · **Claude Desktop** · **Continue.dev** · **Windsu
 | `brave` | General | Brave Search (supports API key) |
 | `github` | Code | GitHub repository search |
 | `zhihu` | Content | Zhihu Q&A (browser direct / Bing `site:` fallback) |
+| `csdn` | Tech | CSDN blog search (API-based, no browser needed) |
 | custom | General | Add any engine via `mcp-search-config.json` |
 
-Default engines: `bing` `baidu` `360` `github` `zhihu`
+Default engines: `bing` `baidu` `360` `github` `zhihu` `csdn`
 
 > For users in China: sogou / duckduckgo / brave may be unreliable. Use `SEARCH_DISABLED_ENGINES` to disable them.
 

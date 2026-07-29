@@ -4,7 +4,7 @@
 
 <div align="center">
 
-多引擎聚合搜索本地 MCP 服务器 — **8 引擎并行** + **模糊去重** + **网页正文提取** + **深度研究** + **自定义场景** + **自定义搜索引擎**。
+多引擎聚合搜索本地 MCP 服务器 — **9 引擎并行** + **模糊去重** + **网页正文提取** + **深度研究** + **自定义场景** + **自定义搜索引擎**。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
@@ -67,9 +67,10 @@
 | `brave` | 通用 | Brave Search（支持 API 密钥） |
 | `github` | 代码 | GitHub 仓库搜索 |
 | `zhihu` | 内容 | 知乎（浏览器模式直连 / Bing `site:` 回退） |
+| `csdn` | 技术 | CSDN 博客搜索（API 直连，无需浏览器） |
 | 自定义 | 通用 | 通过 `mcp-search-config.json` 添加任意引擎 |
 
-默认启用：`bing` `baidu` `360` `github` `zhihu`
+默认启用：`bing` `baidu` `360` `github` `zhihu` `csdn`
 
 > 国内网络：sogou / duckduckgo / brave 可能失效，可用 `SEARCH_DISABLED_ENGINES` 禁用。
 
